@@ -7,10 +7,10 @@ from dentmark.default_definitions import *
 class MetaContext(TagDef):
     tag_name = 'meta'
     is_context = True
-    allow_children = ['slug', 'aliases', 'taxonomy']
+    allow_children = ['slug', 'title', 'pk', 'taxonomy']
 
-    required_children = ['slug', ] # TODO should aliases go here too? Keep it optional for now. Maybe taxonomy should be optional?
-    unique_children = ['slug', 'aliases', 'taxonomy']
+    required_children = ['slug', 'title'] # TODO should aliases go here too? Keep it optional for now. Maybe taxonomy should be optional?
+    unique_children = ['slug', 'title', 'pk', 'taxonomy']
 
     min_num_children = 0
     max_num_children = 0
@@ -45,10 +45,20 @@ class SlugContext(ConfigURLContext):
     def process_data(self, data):
         return super().process_data(data)[0]
 
-class AliasesContext(ConfigURLContext):
-    tag_name = 'aliases'
 
-    #max_num_children = None # can have multiple aliases
+class PKContext(TagDef):
+    tag_name = 'pk'
+    is_context = True
+    allow_children = []
+
+    min_num_children = 1
+    max_num_children = 1
+
+    def validate(self):
+        val = self.get_data()
+        if not val.isdigit():
+            return f"Tag '{self.tag_name}' expects a positive integer"
+
 
 class MetaTaxonomyContext(TagDef):
     tag_name = 'taxonomy'
@@ -76,7 +86,7 @@ class ListItem(ListItem):
 
 
 REGISTERED_TAGS = (
-    Root, MetaContext, SlugContext, AliasesContext, MetaTaxonomyContext,
+    Root, MetaContext, SlugContext, PKContext, MetaTaxonomyContext,
     H1, H2, H3, H4, H5, H6,
     Anchor, URLContext, TitleContext,
     Pre,
@@ -133,9 +143,9 @@ TAXONOMY_TAGS = (
 class ConfigRoot(TagDef):
     tag_name = 'root'
     is_root = True
-    allow_children = ['date_archive_url', 'title', 'description']
+    allow_children = ['date_archive_url', 'title', 'description', 'per_page']
 
-    unique_children = ['date_archive_url', 'title', 'description']
+    unique_children = ['date_archive_url', 'title', 'description', 'per_page']
     #required_children = []
 
     min_num_children = 0
@@ -151,12 +161,25 @@ class ConfigDateArchiveURL(ConfigURLContext):
 class ConfigDescription(TitleContext):
     tag_name = 'description'
 
+class ConfigPerPage(TitleContext):
+    tag_name = 'per_page'
+
+    def process_data(self, data):
+        try:
+            per_page = int(data[0])
+            if per_page < 0:
+                raise ValueError
+        except ValueError:
+            raise Exception(f"Tag '{self.tag_name}' in config expects a positive integer: line {self.line_no}")
+        return per_page
+
 
 CONFIG_TAGS = (
     ConfigRoot,
     ConfigDateArchiveURL,
     TitleContext,
     ConfigDescription,
+    ConfigPerPage,
 )
 
 

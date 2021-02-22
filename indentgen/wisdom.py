@@ -69,7 +69,7 @@ class Wisdom:
                     print('USING CACHED')
                     try:
                         with open(abs_cached_path, 'r') as f:
-                            return f.read(), render_meta['meta']
+                            return f.read(), render_meta['root']
                     except FileNotFoundError:
                         print('CACHED render result doesnt exist - re-render')
                         pass
@@ -88,7 +88,7 @@ class Wisdom:
         extra_context = {} #TODO will we need to use this?
         root.pre_render(root, extra_context)
         rendered = root.render()
-        meta = root.context['meta']
+        #meta = root.context['meta']
         #return rendered
 
         print('SAVING')
@@ -97,8 +97,8 @@ class Wisdom:
             f.write(rendered)
 
         render_cache = self.data.setdefault('render_cache', {})
-        render_cache[key_srp] = {'mts': mts, 'meta': meta}
+        render_cache[key_srp] = {'mts': mts, 'root': root}
 
         self.save()
 
-        return rendered, meta
+        return rendered, root

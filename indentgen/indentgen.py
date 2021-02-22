@@ -5,12 +5,16 @@ import shutil
 import importlib
 #import pkgutil
 #import pickle
+#import math
 from pathlib import Path
 from default_definitions import *
 from wisdom import Wisdom
 from dentmark import Dentmark
 from mako.template import Template
 from mako.lookup import TemplateLookup
+from endpoints import PAGE_URL, Endpoint, ContentEndpoint, TaxonomyEndpoint, RedirectEndpoint, StaticServeEndpoint, Paginator
+from page_store import PageStore
+#from development_server import DevelopmentServer
 
 
 
@@ -29,6 +33,8 @@ class Indentgen:
     OUTPUT_DIR = 'publish'
     STATIC_URL = '_static'
     CACHE_BUST_STATIC_EXTENSIONS = ('.css', '.js') #TODO put this in config.dentmark instead?
+
+    DEFAULT_PER_PAGE = 25
 
     def __init__(self, site_path):
         self.site_path = Path(site_path)
@@ -58,9 +64,13 @@ class Indentgen:
 
         self.wisdom = Wisdom(self.site_path, self.wisdom_path, self.content_path, self.taxonomy_path, self.static_path, self.defs_module)
 
+        #{('url_component', 'url_component', ...): Endpoint}
+        self.routes = {}
+
         self._build_taxonomy_map()
-        self._build_content_map()
-        self._add_pages_to_taxonomy_mappings()
+        self._build_page_store()
+        #self._add_pages_to_taxonomy_map()
+        self._generate_pagination_routes()
 
         self._build_static_file_remapping()
 
@@ -95,93 +105,159 @@ class Indentgen:
             rendered, meta = self.wisdom.get_rendered(srp, is_taxonomy)
             yield srp, rendered, meta
 
+
+    def _add_route(self, endpoint):
+        collision_endpoint = self.routes.get(endpoint.url)
+        if collision_endpoint is not None:
+            #this_name = endpoint.url if not endpoint.has_content else endpoint.srp
+            #other_name = collision_endpoint.url if not collision_endpoint.has_content else collision_endpoint.srp
+            raise Exception(f"URL conflict for '{endpoint.url}': {endpoint.identifier} and {collision_endpoint.identifier}")
+        self.routes[endpoint.url] = endpoint
+
+
     # {tax_slug: {}, tax_slug: {meta.., children: []}}
     def _build_taxonomy_map(self):
+        srp_map = {}
         tax_map = {}
         top_level_taxonomies = []
-        taxonomy_urls = {}
+        #taxonomy_urls = {}
 
-        for srp, rendered, meta in self._gen_walk_content(is_taxonomy=True):
-            collision = tax_map.get(meta['slug'])
-            if collision:
-                raise Exception(f"Taxonomy slugs conflict: {srp} and {collision['srp']}")
-            meta_copy = meta.copy() # use a copy to not contaminate the _wisdom
-            meta_copy['srp'] = srp
-            tax_map[meta_copy['slug']] = meta_copy
-            if 'parent' not in meta_copy:
-                top_level_taxonomies.append(meta_copy['slug'])
+        for srp, rendered, root in self._gen_walk_content(is_taxonomy=True):
+            meta = root.context['meta']
+            slug = meta['slug']
+            collision_srp = srp_map.get(slug)
+            if collision_srp:
+                raise Exception(f"Taxonomy slugs conflict: {srp} and {collision_srp['srp']}")
+            #meta_copy = meta.copy() # use a copy to not contaminate the _wisdom
+            #meta_copy['srp'] = srp
+            #meta = root.context['meta']
+            #tax_map[meta['slug']] = meta_copy
+            #srp_map[slug] = {'parent'}
 
-        for slug, meta in tax_map.items():
+            srp_map[slug] = {'meta': meta, 'srp': srp}
+
+            if 'parent' not in meta:
+                top_level_taxonomies.append(slug)
+
+        for slug, info in srp_map.items():
+            meta = info['meta']
+            tax_map_dict = {'srp': info['srp'], 'slug': meta['slug']}
             parent_slug = meta.get('parent')
             if parent_slug:
+                tax_map_dict['parent'] = parent_slug
                 try:
-                    parent_meta = tax_map[parent_slug]
+                    #parent_tax = tax_map[parent_slug]
+                    children = tax_map[parent_slug].setdefault('children', [])
                 except KeyError:
-                    raise Exception(f"{meta[srp]}: meta parent value does not exist for '{parent_slug}'")
-                children = parent_meta.setdefault('children', [])
+                    raise Exception(f"{info['srp']}: meta parent value does not exist for '{parent_slug}'")
+                #children = parent_meta.setdefault('children', [])
                 children.append(slug)
+            tax_map[slug] = tax_map_dict
 
-            url_components = [slug]
-            focused = meta
-            while 'parent' in focused:
-                focused = tax_map[focused['parent']]
-                url_components.append(focused['slug'])
-            url_components.reverse()
-            taxonomy_urls[tuple(url_components)] = meta['srp']
-            print(url_components)
+            #endpoint_obj = TaxonomyEndpoint(url_components)
 
-            meta['url_components'] = url_components
+            #def __init__(self, url_components, page, srp):
+
+            #taxonomy_urls[tuple(url_components)] = meta['srp']
+            #print(url_components)
+
+            #meta['url_components'] = url_components
 
         print(tax_map)
+        #input('HOLD tax map')
         print(top_level_taxonomies)
-        print(taxonomy_urls)
+        #print(taxonomy_urls)
 
         self.taxonomy_map = tax_map
         self.top_level_taxonomies = top_level_taxonomies
-        self.taxonomy_urls = taxonomy_urls
+        #self.taxonomy_urls = taxonomy_urls
+        #input('HOLD')
 
 
-    def _build_content_map(self):
-        page_map = {}
-        page_urls = {}
-        for srp, rendered, meta in self._gen_walk_content(is_taxonomy=False):
-            all_urls = set([(meta['slug'],)])
-            aliases = meta.get('aliases')
-            if aliases:
-                all_urls.update([(_,) for _ in aliases])
-            print('ALL aliases:', all_urls)
+    def _build_page_store(self):
+        page_store = PageStore()
+        #page_urls = {}
+        for srp, rendered, root in self._gen_walk_content(is_taxonomy=False):
+            meta = root.context['meta']
 
-            for url_dict in (self.taxonomy_urls, page_urls):
-                collision = set(url_dict).intersection(all_urls)
-                if collision:
-                    conflicting_slug = collision.pop()
-                    collides_with = url_dict[conflicting_slug]
-                    raise Exception(f"{srp} slug or aliases conflict with {collides_with}: {conflicting_slug}")
-
-            for url in all_urls:
-                page_urls[url] = srp
-
-            meta_copy = meta.copy()
-            meta_copy['srp'] = srp
-            page_map[meta_copy['slug']] = meta_copy
-
-        self.page_map = page_map
-        self.page_urls = page_urls
-        print(self.page_map)
-
-
-    def _add_pages_to_taxonomy_mappings(self):
-        taxonomy_to_content_map = {}
-        for slug, meta in self.page_map.items():
-            taxonomy = meta.get('taxonomy')
+            # make sure taxonomies are valid
+            taxonomy = meta.get('taxonomy', [])
             if taxonomy:
                 for tax in taxonomy:
                     try:
                         tax_meta = self.taxonomy_map[tax]
                     except KeyError:
-                        raise Exception(f"{meta['srp']} contains invalid taxonomy slug: {tax}")
-                    tax_meta.setdefault('pages', []).append(slug)
-        print(self.taxonomy_map)
+                        raise Exception(f"{srp} contains invalid taxonomy slug: {tax}")
+
+
+            #TODO make this configurable in setting whether to use pk shortcuts or not
+            pk = meta.get('pk')
+            slug = meta['slug']
+
+            url_components = (f'{pk}-{slug}',) if pk is not None else (slug,)
+
+            #0 is for 0th page, these won't have mulitple pages
+            endpoint = ContentEndpoint(url_components, None, srp, taxonomy)
+
+            #page_list.append(endpoint)
+            page_store.add(endpoint)
+
+            self._add_route(endpoint)
+
+            if pk is not None:
+                redirect_endpoint = RedirectEndpoint((pk,), endpoint)
+                self._add_route(redirect_endpoint)
+
+        self.page_store = page_store
+
+        print(self.page_store.pages)
+        #input('HOLD')
+        print(self.routes)
+        #input('HOLD')
+
+
+    def _generate_pagination_routes(self):
+        per_page = self.config.get('per_page', self.DEFAULT_PER_PAGE)
+
+        for slug, info in self.taxonomy_map.items():
+            url_components = [info['slug']]
+            focused = info
+            while 'parent' in focused:
+                focused = self.taxonomy_map[focused['parent']]
+                url_components.append(focused['slug'])
+            url_components.reverse()
+            print(url_components)
+            #input('HOLD URL COMP')
+
+
+            child_pages = self.page_store.filter_by_topic(slug)
+            pag = Paginator(child_pages, per_page)
+
+            endpoint_0 = TaxonomyEndpoint(url_components, 0, info['srp']) # topic/, topic/page/2, topic/page/3 etc.
+
+            # add this to taxonomy map
+            info['endpoint'] = endpoint_0
+
+            base_redirect = RedirectEndpoint(url_components + [PAGE_URL] + ['1'], endpoint_0) # topic/page/1 -> topic/
+            self._add_route(base_redirect)
+
+            page_redirect = RedirectEndpoint(url_components + [PAGE_URL], endpoint_0) # topic/page -> topic/page/1
+            self._add_route(page_redirect)
+
+            for endpoint in pag.gen_all_pages(endpoint_0):
+                self._add_route(endpoint)
+
+            print(self.routes)
+            #input('HOLD pagination gen thing')
+
+            #content_count = self.page_store.count_by_topic(slug)
+            #print(slug, page_count)
+            #input('HOLD PAGE COUNT')
+
+            #num_pages = math.ceil(content_count / per_page)
+
+            #for
+
 
 
     def _build_static_file_remapping(self):
@@ -203,6 +279,10 @@ class Indentgen:
             move_to = self.static_output_path / use_srp
             print(move_to)
             static_file_mapping[srp] = {'from': f, 'to': move_to, 'srp': use_srp}
+
+            components = [self.STATIC_URL] + list(use_srp.parts)
+            endpoint = StaticServeEndpoint(components, f)
+            self._add_route(endpoint)
             #print('srp:', srp)
             #print('moveto:', move_to)
 
@@ -210,6 +290,7 @@ class Indentgen:
             #yield srp, rendered, meta
         self.static_file_mapping = static_file_mapping
         print(static_file_mapping)
+        #input('HOLD static file mapping')
 
 
     def static_url(self, srp):
@@ -222,19 +303,50 @@ class Indentgen:
             meta['to'].parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(meta['from'], meta['to'])
 
+    #def _clear_output_dir(self):
+        #shutil.rmtree(site.path / self.OUTPUT_DIR)
+
     def generate(self):
         # index.html
-        template = self.templates.get_template('base.html')
-        print(template.render(config=self.config, static_url=self.static_url))
-        self._copy_static()
+        #template = self.templates.get_template('base.html')
+        #print(template.render(config=self.config, static_url=self.static_url))
+        #self._copy_static()
+
+        # remove old/stale published content
+        shutil.rmtree(self.output_path, ignore_errors=True) # if dir doesn't exist, ignore error
+
+        for endpoint in self.routes.values():
+            #if endpoint.is_static:
+                #continue
+
+            #rendered = f'bogus_render for {endpoint.url}'
+
+            rendered = endpoint.render(self)
+            if rendered is None:
+                continue
+
+            output_path = self.output_path / endpoint.get_output_path()
+
+            output_path.mkdir(parents=True, exist_ok=True)
+            print(output_path)
+            with open(output_path / 'index.html', 'w') as f:
+                f.write(rendered)
+
+        #self._copy_static()
+
+
+    #def get_server(self):
+        #return DevelopmentServer(self.routes)
+        #return DevelopmentServer
 
 
 if __name__ == '__main__':
     import argparse
 
     parser = argparse.ArgumentParser()
-    #parser.add_argument("square", help="display a square of a given number")
+    parser.add_argument("cmd", choices=('serve', 'build'), help="Command")
     parser.add_argument("--source-dir", help="The directory of the site source files")
+    parser.add_argument("--port", default=1313, help="Port to run development server on")
     args = parser.parse_args()
     print(args)
 
@@ -245,7 +357,29 @@ if __name__ == '__main__':
         source_dir = os.getcwd()
 
     i = Indentgen(source_dir)
-    i.generate()
+
+    if args.cmd == 'serve':
+        print('serving')
+        #from http.server import HTTPServer
+        #host_name = 'localhost'
+        #server = HTTPServer((host_name, args.port), i.get_server())
+        #print("Server started http://%s:%s" % (host_name, args.port))
+
+        #try:
+            #server.serve_forever()
+        #except KeyboardInterrupt:
+            #pass
+
+        #server.server_close()
+        #print("Server stopped.")
+
+
+        #i.serve_development()
+    else:
+        print('building')
+        i.generate()
+
+    #i.generate()
 
     #print(args.square**2)
 
