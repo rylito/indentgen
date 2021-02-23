@@ -26,6 +26,7 @@ class Wisdom:
 
 
     def save(self):
+        self.wisdom_path.mkdir(parents=True, exist_ok=True)
         with open(self.pickle_path, 'wb') as f:
             pickle.dump(self.data, f)
 

@@ -1,4 +1,5 @@
 import re
+import datetime
 from dentmark.default_definitions import *
 
 # custom overrides
@@ -7,10 +8,10 @@ from dentmark.default_definitions import *
 class MetaContext(TagDef):
     tag_name = 'meta'
     is_context = True
-    allow_children = ['slug', 'title', 'pk', 'taxonomy']
+    allow_children = ['slug', 'title', 'pk', 'taxonomy', 'date']
 
-    required_children = ['slug', 'title'] # TODO should aliases go here too? Keep it optional for now. Maybe taxonomy should be optional?
-    unique_children = ['slug', 'title', 'pk', 'taxonomy']
+    required_children = ['slug', 'title', 'date'] # TODO should aliases go here too? Keep it optional for now. Maybe taxonomy should be optional?
+    unique_children = ['slug', 'title', 'pk', 'taxonomy', 'date']
 
     min_num_children = 0
     max_num_children = 0
@@ -72,6 +73,21 @@ class MetaTaxonomyContext(TagDef):
     def process_data(self, data):
         return data # TODO always return a list. Maybe this should be default in dentmark?
 
+class MetaDateContext(TagDef):
+    tag_name = 'date'
+    is_context = True
+    allow_children = []
+
+    min_num_children = 1
+    max_num_children = 1
+
+    def process_data(self, data):
+        try:
+            return datetime.datetime.strptime(data[0], '%Y-%m-%d').date()
+        except ValueError:
+            raise Exception(f"Invalid date value for Tag '{self.tag_name}' in meta: line {self.line_no}")
+            
+
 
 # patch default dentmark tags to include/exclude meta
 class Root(Root):
@@ -86,7 +102,7 @@ class ListItem(ListItem):
 
 
 REGISTERED_TAGS = (
-    Root, MetaContext, SlugContext, PKContext, MetaTaxonomyContext,
+    Root, MetaContext, SlugContext, PKContext, MetaTaxonomyContext, MetaDateContext,
     H1, H2, H3, H4, H5, H6,
     Anchor, URLContext, TitleContext,
     Pre,

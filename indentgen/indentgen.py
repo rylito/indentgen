@@ -7,22 +7,23 @@ import importlib
 #import pickle
 #import math
 from pathlib import Path
-from default_definitions import *
-from wisdom import Wisdom
+from indentgen.default_definitions import *
+from indentgen.wisdom import Wisdom
 from dentmark import Dentmark
 from mako.template import Template
 from mako.lookup import TemplateLookup
-from endpoints import PAGE_URL, Endpoint, ContentEndpoint, TaxonomyEndpoint, RedirectEndpoint, StaticServeEndpoint, Paginator
-from page_store import PageStore
+from indentgen.endpoints import PAGE_URL, Endpoint, ContentEndpoint, TaxonomyEndpoint, RedirectEndpoint, StaticServeEndpoint, Paginator
+from indentgen.page_store import PageStore
 #from development_server import DevelopmentServer
-
+import indentgen.default_definitions
 
 
 class Indentgen:
     WISDOM_DIR = '_wisdom'
     CONTENT_DIR = 'content'
     TAXONOMY_DIR = 'taxonomy'
-    DEFS_MODULE_NAME = 'indentgen_defs'
+    #DEFAULT_DEFS_MODULE_NAME = 'indentgen.default_definitions'
+    CUSTOM_DEFS_MODULE_NAME = 'indentgen_defs'
     CONFIG_FILE_NAME = 'config.dentmark'
     THEME_DIR = 'theme'
     TEMPLATE_DIR = Path(THEME_DIR) / 'templates'
@@ -48,7 +49,11 @@ class Indentgen:
         #self.dentmark = Dentmark('dentmark_defs')
 
         #print(self.available_definitions)
-        self.defs_module = importlib.import_module(self.DEFS_MODULE_NAME)
+        try:
+            self.defs_module = importlib.import_module(self.CUSTOM_DEFS_MODULE_NAME)
+        except ModuleNotFoundError:
+            #self.defs_module = importlib.import_module(self.DEFAULT_DEFS_MODULE_NAME)
+            self.defs_module = indentgen.default_definitions
         #print(defs_module.REGISTERED_TAGS)
         #self.dentmark = Dentmark(defs_module.REGISTERED_TAGS)
 
@@ -66,6 +71,10 @@ class Indentgen:
 
         #{('url_component', 'url_component', ...): Endpoint}
         self.routes = {}
+        self._add_route(Endpoint([])) # add home page
+        #print(self.routes)
+        #print(Endpoint([]).get_output_path())
+        #input('hold')
 
         self._build_taxonomy_map()
         self._build_page_store()
@@ -117,7 +126,7 @@ class Indentgen:
 
     # {tax_slug: {}, tax_slug: {meta.., children: []}}
     def _build_taxonomy_map(self):
-        srp_map = {}
+        #srp_map = {}
         tax_map = {}
         top_level_taxonomies = []
         #taxonomy_urls = {}
@@ -125,26 +134,28 @@ class Indentgen:
         for srp, rendered, root in self._gen_walk_content(is_taxonomy=True):
             meta = root.context['meta']
             slug = meta['slug']
-            collision_srp = srp_map.get(slug)
-            if collision_srp:
-                raise Exception(f"Taxonomy slugs conflict: {srp} and {collision_srp['srp']}")
+            collision = tax_map.get(slug)
+            if collision:
+                raise Exception(f"Taxonomy slugs conflict: {srp} and {collision['srp']}")
             #meta_copy = meta.copy() # use a copy to not contaminate the _wisdom
             #meta_copy['srp'] = srp
             #meta = root.context['meta']
             #tax_map[meta['slug']] = meta_copy
             #srp_map[slug] = {'parent'}
 
-            srp_map[slug] = {'meta': meta, 'srp': srp}
+            tax_map[slug] = {'slug': slug, 'srp': srp}
 
             if 'parent' not in meta:
                 top_level_taxonomies.append(slug)
+            else:
+                tax_map[slug]['parent'] = meta['parent']
 
-        for slug, info in srp_map.items():
-            meta = info['meta']
-            tax_map_dict = {'srp': info['srp'], 'slug': meta['slug']}
-            parent_slug = meta.get('parent')
+        for slug, info in tax_map.items():
+            #meta = info['meta']
+            #tax_map_dict = {'srp': info['srp'], 'slug': meta['slug']}
+            parent_slug = info.get('parent')
             if parent_slug:
-                tax_map_dict['parent'] = parent_slug
+                #tax_map_dict['parent'] = parent_slug
                 try:
                     #parent_tax = tax_map[parent_slug]
                     children = tax_map[parent_slug].setdefault('children', [])
@@ -152,7 +163,9 @@ class Indentgen:
                     raise Exception(f"{info['srp']}: meta parent value does not exist for '{parent_slug}'")
                 #children = parent_meta.setdefault('children', [])
                 children.append(slug)
-            tax_map[slug] = tax_map_dict
+                print(tax_map)
+                #input('HOLD HERE')
+            #tax_map[slug] = tax_map_dict
 
             #endpoint_obj = TaxonomyEndpoint(url_components)
 
@@ -238,6 +251,9 @@ class Indentgen:
             # add this to taxonomy map
             info['endpoint'] = endpoint_0
 
+            # clean this out of taxonomy map since it is stored on endpoint obj
+            del info['srp']
+
             base_redirect = RedirectEndpoint(url_components + [PAGE_URL] + ['1'], endpoint_0) # topic/page/1 -> topic/
             self._add_route(base_redirect)
 
@@ -257,7 +273,8 @@ class Indentgen:
             #num_pages = math.ceil(content_count / per_page)
 
             #for
-
+        print(self.taxonomy_map)
+        #input('HOLD')
 
 
     def _build_static_file_remapping(self):
@@ -332,69 +349,9 @@ class Indentgen:
             with open(output_path / 'index.html', 'w') as f:
                 f.write(rendered)
 
-        #self._copy_static()
+        self._copy_static()
 
 
     #def get_server(self):
         #return DevelopmentServer(self.routes)
         #return DevelopmentServer
-
-
-if __name__ == '__main__':
-    import argparse
-
-    parser = argparse.ArgumentParser()
-    parser.add_argument("cmd", choices=('serve', 'build'), help="Command")
-    parser.add_argument("--source-dir", help="The directory of the site source files")
-    parser.add_argument("--port", default=1313, help="Port to run development server on")
-    args = parser.parse_args()
-    print(args)
-
-    if args.source_dir:
-        source_dir = args.source_dir
-    else:
-        import os
-        source_dir = os.getcwd()
-
-    i = Indentgen(source_dir)
-
-    if args.cmd == 'serve':
-        print('serving')
-        #from http.server import HTTPServer
-        #host_name = 'localhost'
-        #server = HTTPServer((host_name, args.port), i.get_server())
-        #print("Server started http://%s:%s" % (host_name, args.port))
-
-        #try:
-            #server.serve_forever()
-        #except KeyboardInterrupt:
-            #pass
-
-        #server.server_close()
-        #print("Server stopped.")
-
-
-        #i.serve_development()
-    else:
-        print('building')
-        i.generate()
-
-    #i.generate()
-
-    #print(args.square**2)
-
-
-    #i = Indentgen('/home/ryli/src/personal/indentgen/sample_site')
-
-    #i.wisdom.save()
-    #i.wisdom.get_rendered('hello')
-    #i.config
-
-    #i.walk_content(True)
-
-    #rendered, ctx = i.wisdom.get_rendered(i.content_path / 'articles' / 'article_1.dentmark')
-    #print(rendered)
-    #print(ctx)
-
-    #i.build_taxonomy_map()
-    #i._build_content_map()

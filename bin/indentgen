@@ -1,0 +1,89 @@
+#!/usr/bin/env python
+
+import argparse
+
+parser = argparse.ArgumentParser()
+parser.add_argument("cmd", choices=('serve', 'build', 'check'), help="Command")
+parser.add_argument("--source-dir", help="The directory of the site source files")
+parser.add_argument("--port", default=1313, type=int, help="Port to run development server on")
+args = parser.parse_args()
+print(args)
+
+if args.source_dir:
+    source_dir = args.source_dir
+else:
+    import os
+    source_dir = os.getcwd()
+
+print('source_dir:', source_dir)
+
+from indentgen import Indentgen
+
+i = Indentgen(source_dir)
+
+if args.cmd == 'serve':
+    # re-build first
+    i.generate()
+
+    #print('serving')
+    import http.server
+    import socketserver
+    import functools
+
+    PORT = 8000
+
+    #handler = http.server.SimpleHTTPRequestHandler
+    handler = functools.partial(http.server.SimpleHTTPRequestHandler, directory=str(i.output_path))
+
+    socketserver.TCPServer.allow_reuse_address = True
+
+    with socketserver.TCPServer(('', args.port), handler) as httpd:
+        httpd.allow_reuse_address = True
+        print("Server started at localhost:" + str(args.port))
+        try:
+            httpd.serve_forever()
+        except KeyboardInterrupt:
+            pass
+        #httpd.shutdown()
+        #httpd.socket.close()
+        #httpd.server_close()
+    #httpd.server_close()
+
+    #from http.server import HTTPServer
+    #host_name = 'localhost'
+    #server = HTTPServer((host_name, args.port), i.get_server())
+    #print("Server started http://%s:%s" % (host_name, args.port))
+
+    #try:
+        #server.serve_forever()
+    #except KeyboardInterrupt:
+        #pass
+
+    #server.server_close()
+    #print("Server stopped.")
+
+
+    #i.serve_development()
+elif args.cmd == 'build':
+    print('building')
+    i.generate()
+
+    #i.generate()
+
+    #print(args.square**2)
+
+
+    #i = Indentgen('/home/ryli/src/personal/indentgen/sample_site')
+
+    #i.wisdom.save()
+    #i.wisdom.get_rendered('hello')
+    #i.config
+
+    #i.walk_content(True)
+
+    #rendered, ctx = i.wisdom.get_rendered(i.content_path / 'articles' / 'article_1.dentmark')
+    #print(rendered)
+    #print(ctx)
+
+    #i.build_taxonomy_map()
+    #i._build_content_map()

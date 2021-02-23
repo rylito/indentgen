@@ -4,7 +4,7 @@ from pathlib import Path
 PAGE_URL = 'page' #TODO make this configurable in site settings?
 
 class Endpoint:
-    use_template = 'home.html'
+    use_template = 'pages/home.html'
     #has_content = False
     srp = None
     #is_static = False
@@ -14,6 +14,8 @@ class Endpoint:
         self.page = page
 
     def get_output_path(self):
+        #if not self.url_components:
+            #return
         if self.page is None or self.page == 0:
             return Path(*self.url_components)
         else:
@@ -24,6 +26,8 @@ class Endpoint:
 
     @property
     def url(self):
+        if not self.url_components:
+            return '/'
         url = '/'.join(self.url_components)
         if self.page is not None and self.page > 0:
             url += f'/{PAGE_URL}/{self.page + 1}'
@@ -32,6 +36,23 @@ class Endpoint:
     @property
     def identifier(self):
         return self.srp if self.srp is not None else self.url
+
+
+    def render(self, indentgen_obj):
+        #rendered, root = indentgen_obj.wisdom.get_rendered(self.srp, self.is_taxonomy)
+
+        context = {
+            'static_url': indentgen_obj.static_url,
+            'taxonomies': indentgen_obj.taxonomy_map,
+            #'content': rendered,
+            #'content_root': root,
+            'site_config': indentgen_obj.config,
+            'page_store': indentgen_obj.page_store,
+            #'page': self,
+        }
+
+        template = indentgen_obj.templates.get_template(self.use_template)
+        return template.render(**context)
 
     #def generate(self, template_mgr, site_config, static_func, taxonomy, wisdom):
         #rendered, root = wisdom.get_rendered(self.srp, self.i_taxonomy)
@@ -60,7 +81,7 @@ class Endpoint:
 
 
 class ContentEndpoint(Endpoint):
-    use_template = 'content.html'
+    use_template = 'pages/content.html'
     #has_content = True
     is_taxonomy = False
 
@@ -79,7 +100,8 @@ class ContentEndpoint(Endpoint):
             'content': rendered,
             'content_root': root,
             'site_config': indentgen_obj.config,
-            'page': self
+            'page_store': indentgen_obj.page_store,
+            'page': self,
         }
 
         template = indentgen_obj.templates.get_template(self.use_template)
@@ -103,7 +125,7 @@ class ContentEndpoint(Endpoint):
 
 
 class TaxonomyEndpoint(ContentEndpoint):
-    use_template = 'taxonomy.html'
+    use_template = 'pages/taxonomy.html'
     is_taxonomy = True
 
 
@@ -123,7 +145,7 @@ class TaxonomyEndpoint(ContentEndpoint):
 #class PaginatedEndpoint(ContentEndpoin):
 
 class RedirectEndpoint(Endpoint):
-    use_template = 'redirect.html'
+    use_template = 'pages/redirect.html'
     #has_content = False
 
     def __init__(self, from_url_components, to_endpoint):

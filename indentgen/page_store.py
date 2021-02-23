@@ -1,5 +1,6 @@
 class PageStore:
-    pages = []
+    def __init__(self, init=[]):
+        self.pages = init
 
 
     def add(self, endpoint):
@@ -14,14 +15,10 @@ class PageStore:
             if slug in endpoint.taxonomies:
                 #yield endpoint
                 filtered.append(endpoint)
-        return filtered
+        return PageStore(filtered)
 
+    def __len__(self):
+        return len(self.pages)
 
-    #def count_by_topic(self, slug):
-        #count = 0
-        #for endpoint in self.gen_by_topic(slug):
-            #count +=1
-        #return count
-
-
-
+    def __getitem__(self, key):
+        return self.pages[key]
