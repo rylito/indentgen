@@ -7,15 +7,20 @@ import importlib
 #import pickle
 #import math
 from pathlib import Path
-from indentgen.default_definitions import *
+
+#from indentgen.default_definitions import *
+
 from indentgen.wisdom import Wisdom
-from dentmark import Dentmark
+
+#from dentmark import render
+
 from mako.template import Template
 from mako.lookup import TemplateLookup
 from indentgen.endpoints import PAGE_URL, Endpoint, ContentEndpoint, TaxonomyEndpoint, RedirectEndpoint, StaticServeEndpoint, Paginator
 from indentgen.page_store import PageStore
 #from development_server import DevelopmentServer
-import indentgen.default_definitions
+#import indentgen.default_definitions
+
 
 
 class Indentgen:
@@ -44,20 +49,23 @@ class Indentgen:
         sys.path.append(str(self.site_path))
         print(sys.path)
 
+        #self.
+
+
         #self.defs_module_name = defs_module_name
         #self.available_definitions = self._find_defs()
         #self.dentmark = Dentmark('dentmark_defs')
 
         #print(self.available_definitions)
-        try:
-            self.defs_module = importlib.import_module(self.CUSTOM_DEFS_MODULE_NAME)
-        except ModuleNotFoundError:
-            #self.defs_module = importlib.import_module(self.DEFAULT_DEFS_MODULE_NAME)
-            self.defs_module = indentgen.default_definitions
+        #try:
+            #self.defs_module = importlib.import_module(self.CUSTOM_DEFS_MODULE_NAME)
+        #except ModuleNotFoundError:
+            ##self.defs_module = importlib.import_module(self.DEFAULT_DEFS_MODULE_NAME)
+            #self.defs_module = indentgen.default_definitions
         #print(defs_module.REGISTERED_TAGS)
         #self.dentmark = Dentmark(defs_module.REGISTERED_TAGS)
 
-        self._load_config()
+        #self._load_config()
 
         self.content_path = self.site_path / self.CONTENT_DIR
         self.taxonomy_path = self.site_path / self.TAXONOMY_DIR
@@ -67,7 +75,10 @@ class Indentgen:
         self.output_path = self.site_path / self.OUTPUT_DIR
         self.static_output_path = self.output_path / self.STATIC_URL
 
-        self.wisdom = Wisdom(self.site_path, self.wisdom_path, self.content_path, self.taxonomy_path, self.static_path, self.defs_module)
+        self.config_file_path = self.site_path / self.CONFIG_FILE_NAME
+
+        self.wisdom = Wisdom(self.site_path, self.wisdom_path, self.content_path, self.taxonomy_path, self.static_path, self.config_file_path)
+        self.config = self.wisdom.get_config()
 
         #{('url_component', 'url_component', ...): Endpoint}
         self.routes = {}
@@ -88,13 +99,13 @@ class Indentgen:
         self.templates = TemplateLookup(directories=[template_dir], module_directory=template_cache_dir)
 
 
-    def _load_config(self):
-        dentmark_instance = Dentmark(self.defs_module.CONFIG_TAGS)
-        config_file_path = self.site_path / self.CONFIG_FILE_NAME
+    #def _load_config(self):
+        #dentmark_instance = Dentmark(self.defs_module.CONFIG_TAGS)
+        #config_file_path = self.site_path / self.CONFIG_FILE_NAME
 
-        with open(config_file_path, 'r') as f:
-            self.config = dentmark_instance.render(f)
-            print(self.config)
+        #with open(config_file_path, 'r') as f:
+            #self.config = dentmark_instance.render(f)
+            #print(self.config)
 
     #def get_site_relative_path(self, path):
         #return path.relative_to(self.site_path)
