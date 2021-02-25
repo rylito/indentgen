@@ -48,6 +48,7 @@ class Endpoint:
             #'content_root': root,
             'site_config': indentgen_obj.config,
             'page_store': indentgen_obj.page_store,
+            'url': self.url
             #'page': self,
         }
 
@@ -85,11 +86,19 @@ class ContentEndpoint(Endpoint):
     #has_content = True
     is_taxonomy = False
 
-    def __init__(self, url_components, page, srp, taxonomies=[]):
+    def __init__(self, url_components, page, srp, meta, taxonomies={}):
         super().__init__(url_components, page)
         #self.url_components = url_components
         self.srp = srp
+        self.meta = meta
         self.taxonomies = taxonomies
+
+    #@property
+    #def meta(self):
+        #return indentgen_obj.wisdom.get_rendered(self.srp, self.is_taxonomy)[1]['meta']
+
+    #def get_taxonomies_by_top_level(self, tax_slug):
+        #for
 
     def render(self, indentgen_obj):
         rendered, root = indentgen_obj.wisdom.get_rendered(self.srp, self.is_taxonomy)
@@ -102,6 +111,7 @@ class ContentEndpoint(Endpoint):
             'site_config': indentgen_obj.config,
             'page_store': indentgen_obj.page_store,
             'page': self,
+            'url': self.url
         }
 
         template = indentgen_obj.templates.get_template(self.use_template)
@@ -137,6 +147,9 @@ class TaxonomyEndpoint(ContentEndpoint):
         #if self.page > 0:
             #return TaxonomyEndpoint(self.url_components, self.page - 1, self.srp, self.taxonomies)
         #return None
+
+    #def top_level(self):
+        #return 
 
     def next_page(self):
         return TaxonomyEndpoint(self.url_components, self.page + 1, self.srp, self.taxonomies)

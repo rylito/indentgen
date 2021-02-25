@@ -1,4 +1,5 @@
 #TODO make sure urls don't clobber 'static' and other reserved URLS
+#TODO enforce that series must have part #s
 
 import sys
 import shutil
@@ -13,6 +14,13 @@ from pathlib import Path
 from indentgen.wisdom import Wisdom
 
 #from dentmark import render
+
+import dentmark
+#from indentgen.default_definitions import CONTENT_TAG_SET
+from indentgen.default_definitions.content_tag_defs import CONTENT_TAG_SET #, TaxonomyItemTagDef
+from indentgen.default_definitions.taxonomy_tag_defs import TAXONOMY_TAG_SET
+from indentgen.taxonomy_def_set import TaxonomyDefSet
+#from indentgen.taxonomy_tag_def import TaxonomyTagDef, TaxonomyItemTagDef
 
 from mako.template import Template
 from mako.lookup import TemplateLookup
@@ -67,6 +75,7 @@ class Indentgen:
 
         #self._load_config()
 
+
         self.content_path = self.site_path / self.CONTENT_DIR
         self.taxonomy_path = self.site_path / self.TAXONOMY_DIR
         self.wisdom_path = self.site_path / self.WISDOM_DIR
@@ -87,8 +96,18 @@ class Indentgen:
         #print(Endpoint([]).get_output_path())
         #input('hold')
 
+        self._patch_def_sets()
+
         self._build_taxonomy_map()
+        self._check_taxonomy_tags_meta(is_taxonomy=True)
+
+        #self._build_taxonomy_tags()
         self._build_page_store()
+        self._check_taxonomy_tags_meta(is_taxonomy=False)
+
+        #self._build_taxonomy_page_store()
+        self._add_taxonomy_to_page_store()
+
         #self._add_pages_to_taxonomy_map()
         self._generate_pagination_routes()
 
@@ -135,6 +154,18 @@ class Indentgen:
         self.routes[endpoint.url] = endpoint
 
 
+    def _patch_def_sets(self):
+        content_tag_set = dentmark.defs_manager.get_tag_set(CONTENT_TAG_SET)
+        taxonomy_tag_set = dentmark.defs_manager.get_tag_set(TAXONOMY_TAG_SET)
+
+        # Monkey patch this to use the extended class to defer resolving tag names
+        # Kinda hacky, but it works
+        for tag_set in (content_tag_set, taxonomy_tag_set):
+            new_def_set = TaxonomyDefSet.copy_from_def_set(tag_set)
+            dentmark.defs_manager.def_sets[tag_set.tag_set_name] = new_def_set
+
+
+
     # {tax_slug: {}, tax_slug: {meta.., children: []}}
     def _build_taxonomy_map(self):
         #srp_map = {}
@@ -144,6 +175,10 @@ class Indentgen:
 
         for srp, rendered, root in self._gen_walk_content(is_taxonomy=True):
             meta = root.context['meta']
+
+            #print(meta)
+            #input('HOLD')
+
             slug = meta['slug']
             collision = tax_map.get(slug)
             if collision:
@@ -154,7 +189,15 @@ class Indentgen:
             #tax_map[meta['slug']] = meta_copy
             #srp_map[slug] = {'parent'}
 
-            tax_map[slug] = {'slug': slug, 'srp': srp}
+            tax_map[slug] = {'slug': slug, 'srp': srp, 'title': meta['title']}
+            tax_map[slug]['pseudo'] = meta['pseudo'] if 'pseudo' in meta else False
+            if 'taxonomy' in meta:
+                tax_map[slug]['taxonomy'] = meta['taxonomy']
+
+            #print(tax_map)
+            #input('HOLD')
+
+            #TODO enforce that pseudo taxonomies cannot have children?
 
             if 'parent' not in meta:
                 top_level_taxonomies.append(slug)
@@ -198,6 +241,21 @@ class Indentgen:
         #input('HOLD')
 
 
+    def _check_taxonomy_tags_meta(self, is_taxonomy):
+        for srp, rendered, root in self._gen_walk_content(is_taxonomy):
+            meta = root.context['meta']
+            taxonomy = meta.get('taxonomy')
+            if taxonomy is not None:
+                invalid = set(taxonomy).difference(self.taxonomy_map)
+                if invalid:
+                    raise Exception(f"Invalid taxonomy tag(s) {invalid} in meta: {srp}")
+                print(invalid)
+                #input('HOLD')
+
+
+
+
+
     def _build_page_store(self):
         page_store = PageStore()
         #page_urls = {}
@@ -206,12 +264,14 @@ class Indentgen:
 
             # make sure taxonomies are valid
             taxonomy = meta.get('taxonomy', [])
-            if taxonomy:
-                for tax in taxonomy:
-                    try:
-                        tax_meta = self.taxonomy_map[tax]
-                    except KeyError:
-                        raise Exception(f"{srp} contains invalid taxonomy slug: {tax}")
+            print('meta', meta)
+            #input('HOLD')
+            #if taxonomy:
+                #for tax in taxonomy:
+                    #try:
+                        #tax_meta = self.taxonomy_map[tax]
+                    #except KeyError:
+                        #raise Exception(f"{srp} contains invalid taxonomy slug: {tax}")
 
 
             #TODO make this configurable in setting whether to use pk shortcuts or not
@@ -220,8 +280,8 @@ class Indentgen:
 
             url_components = (f'{pk}-{slug}',) if pk is not None else (slug,)
 
-            #0 is for 0th page, these won't have mulitple pages
-            endpoint = ContentEndpoint(url_components, None, srp, taxonomy)
+            #None is for 0th page, these won't have multiple pages
+            endpoint = ContentEndpoint(url_components, None, srp, meta, taxonomy)
 
             #page_list.append(endpoint)
             page_store.add(endpoint)
@@ -240,10 +300,11 @@ class Indentgen:
         #input('HOLD')
 
 
-    def _generate_pagination_routes(self):
-        per_page = self.config.get('per_page', self.DEFAULT_PER_PAGE)
-
+    def _add_taxonomy_to_page_store(self):
+        #for srp, rendered, root in self._gen_walk_content(is_taxonomy=True):
         for slug, info in self.taxonomy_map.items():
+            #meta = root.context['meta']
+
             url_components = [info['slug']]
             focused = info
             while 'parent' in focused:
@@ -251,30 +312,73 @@ class Indentgen:
                 url_components.append(focused['slug'])
             url_components.reverse()
             print(url_components)
-            #input('HOLD URL COMP')
+            #input('hold')
 
+            info['top_level'] = url_components[0]
+
+            #print(info)
+            #input('hold')
+
+            taxonomies = info.get('taxonomy', [])
+            srp = info['srp']
+            # clean this out of taxonomy map since it is stored on endpoint obj
+            del info['srp']
+
+            endpoint_0 = TaxonomyEndpoint(url_components, 0, srp, {k:v for k,v in info.items() if k != 'endpoint'}, taxonomies)
+
+
+            # add this to taxonomy map
+            #tax_info = self.taxonomy_map[meta['slug']]
+            #tax_info['endpoint'] = endpoint_0
+            info['endpoint'] = endpoint_0
+
+            self.page_store.add(endpoint_0)
+
+
+
+
+    def _generate_pagination_routes(self):
+        per_page = self.config.get('per_page', self.DEFAULT_PER_PAGE)
+
+        for slug, info in self.taxonomy_map.items():
 
             child_pages = self.page_store.filter_by_topic(slug)
             pag = Paginator(child_pages, per_page)
 
-            endpoint_0 = TaxonomyEndpoint(url_components, 0, info['srp']) # topic/, topic/page/2, topic/page/3 etc.
+            #endpoint_0 = TaxonomyEndpoint(url_components, 0, info['srp']) # topic/, topic/page/2, topic/page/3 etc.
 
             # add this to taxonomy map
-            info['endpoint'] = endpoint_0
+            #info['endpoint'] = endpoint_0
 
             # clean this out of taxonomy map since it is stored on endpoint obj
-            del info['srp']
+            #del info['srp']
 
-            base_redirect = RedirectEndpoint(url_components + [PAGE_URL] + ['1'], endpoint_0) # topic/page/1 -> topic/
-            self._add_route(base_redirect)
+            endpoint_0 = info['endpoint']
 
-            page_redirect = RedirectEndpoint(url_components + [PAGE_URL], endpoint_0) # topic/page -> topic/page/1
-            self._add_route(page_redirect)
+            url_components = endpoint_0.url_components
 
-            for endpoint in pag.gen_all_pages(endpoint_0):
-                self._add_route(endpoint)
+            endpoint_0.child_pages = child_pages # attach this in addition to paginator, pseudo taxon only have this
 
-            print(self.routes)
+            if not info['pseudo']:
+                base_redirect = RedirectEndpoint(url_components + [PAGE_URL] + ['1'], endpoint_0) # topic/page/1 -> topic/
+                self._add_route(base_redirect)
+
+                page_redirect = RedirectEndpoint(url_components + [PAGE_URL], endpoint_0) # topic/page -> topic/page/1
+                self._add_route(page_redirect)
+
+                for endpoint in pag.gen_all_pages(endpoint_0):
+                    self._add_route(endpoint)
+            #else:
+                #endpoint_0.child_pages = child_pages # attach this rather than paginator for pseudo taxonomies
+
+            print('-->', url_components)
+            try:
+                print([x.taxonomies for x in endpoint_0.paginator_page.items])
+            except AttributeError:
+                print([x.taxonomies for x in endpoint_0.child_pages])
+            #input('HOLD')
+
+            #print(self.routes)
             #input('HOLD pagination gen thing')
 
             #content_count = self.page_store.count_by_topic(slug)
