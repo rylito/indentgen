@@ -1,0 +1,67 @@
+##content.html
+##<br>
+
+##${site_config}
+##<br>
+##${taxonomies}
+##<br>
+##ROOT:
+##${content_root}
+##<br>
+##${content}
+##<br>
+##${page}
+
+<%inherit file="/base.html"/>
+
+<main class="main" role="main">
+    <article class="post">
+        <header class="post__header">
+            <h1 class="post__title">${page.meta['title']}</h1>
+            ##{{- with .Params.lead }}
+
+            <% lead = content_root.collectors.get('lead') %>
+            % if lead:
+            <p class="post__lead">${lead[0]}</p>
+            % endif
+
+            ##{{- end }}
+
+<div class="post__meta meta">
+##{{ partial "post_meta.html" . }}
+<%include file="/includes/post_meta.html"/>
+
+##TODO series stuff
+
+
+</div>
+
+##{{ partial "share_buttons.html" . }}
+<%include file="/includes/share_buttons.html"/>
+
+        </header>
+
+        ## TODO figure stuff
+
+        ##{{- partial "post_toc.html" . -}} # not used
+        <div class="content post__content clearfix">
+        ## TODO series stuff
+        <%include file="/includes/series_links.html"/>
+
+            ##${content_root.collectors}
+            ${content}
+
+        </div>
+        ##{{- if .Params.tags }}
+        <footer class="post__footer">
+            ##{{ partial "post_tags.html" . }}
+            <%include file="/includes/post_tags.html"/>
+        </footer>
+        ##{{- end }}
+    </article>
+</main>
+##{{ partial "authorbox.html" . }}
+##{{ partial "post_nav.html" . }}
+<%include file="/includes/post_nav.html"/>
+##{{ partial "comments.html" . }}
+

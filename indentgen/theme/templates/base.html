@@ -1,0 +1,68 @@
+<%
+    title = site_config.get('title', '')
+    description = site_config.get('description', '')
+%>
+
+<!DOCTYPE html>
+<html class="no-js" lang="en-us">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+
+    ## fix this
+    <title>${title}</title>
+
+    <script>(function(d,e){d[e]=d[e].replace("no-js","js");})(document.documentElement,"className");</script>
+
+    ## fix this
+    <meta name="description" content="${description}">
+
+    ## opengraph / twitter cards here
+
+    <link rel="dns-prefetch" href="//fonts.googleapis.com">
+    <link rel="dns-prefetch" href="//fonts.gstatic.com">
+
+    ## ok to hardcode this?
+    <link rel="alternate" type="application/rss+xml" href="/index.xml" title="${title}">
+
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Open+Sans:400,400i,700">
+
+    ## fix this, these should be cachebusted, maybe with some helper tag
+    <link rel="stylesheet" href="${static_url('css/style.css')}">
+    <link rel="stylesheet" href="${static_url('css/custom.css')}">
+    <link rel="stylesheet" href="${static_url('css/custom_fonts.css')}">
+
+    <link rel="shortcut icon" href="/favicon.ico">
+</head>
+<body class="body">
+    <div class="container container--outer">
+        ## TODO include header
+        <%include file="/includes/header.html"/>
+        <div class="wrapper flex">
+            <div class="primary">
+            ## block main
+                ## with content
+                ##<div class="content main__content clearfix">
+                    ## weird {{ . }}
+                    ${self.body()}
+                ##</div> <!---->
+                ## end
+            ## end
+            </div> <!---->
+            ## {{ partial "sidebar.html" . }}
+        <%include file="/includes/sidebar.html"/>
+        </div> <!---->
+    <%include file="/includes/footer.html"/>
+    </div> <!---->
+
+<script async defer src="${static_url('js/menu.js')}"></script>
+## {{- if and (.Param "comments") .IsPage }}
+
+% if not (page is UNDEFINED or page.is_taxonomy or page.meta.get('disable_comments', False)):
+<script async defer src="${static_url('js/comments.js')}"></script>
+% endif
+
+## end
+</body>
+</html>

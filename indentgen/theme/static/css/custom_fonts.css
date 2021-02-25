@@ -1,0 +1,524 @@
+@font-face {
+font-family: valkyrie_t3;
+font-style: normal;
+font-weight: bold;
+font-stretch: normal;
+src: url('valkyrie_t3_bold.woff') format('woff');
+}
+@font-face {
+font-family: valkyrie_t3_italic;
+font-style: italic;
+font-weight: bold;
+font-stretch: normal;
+src: url('valkyrie_t3_bold.woff') format('woff');
+}
+@font-face {
+font-family: valkyrie_t3_bold;
+font-style: normal;
+font-weight: normal;
+font-stretch: normal;
+src: url('valkyrie_t3_bold.woff') format('woff');
+}
+@font-face {
+font-family: valkyrie_t3_bold_italic;
+font-style: italic;
+font-weight: normal;
+font-stretch: normal;
+src: url('valkyrie_t3_bold.woff') format('woff');
+}
+@font-face {
+font-family: valkyrie_t3;
+font-style: italic;
+font-weight: bold;
+font-stretch: normal;
+src: url('valkyrie_t3_bold_italic.woff') format('woff');
+}
+@font-face {
+font-family: valkyrie_t3_italic;
+font-style: normal;
+font-weight: bold;
+font-stretch: normal;
+src: url('valkyrie_t3_bold_italic.woff') format('woff');
+}
+@font-face {
+font-family: valkyrie_t3_bold;
+font-style: italic;
+font-weight: normal;
+font-stretch: normal;
+src: url('valkyrie_t3_bold_italic.woff') format('woff');
+}
+@font-face {
+font-family: valkyrie_t3_bold_italic;
+font-style: normal;
+font-weight: normal;
+font-stretch: normal;
+src: url('valkyrie_t3_bold_italic.woff') format('woff');
+}
+@font-face {
+font-family: valkyrie_t3;
+font-style: italic;
+font-weight: normal;
+font-stretch: normal;
+src: url('valkyrie_t3_italic.woff') format('woff');
+}
+@font-face {
+font-family: valkyrie_t3_italic;
+font-style: normal;
+font-weight: normal;
+font-stretch: normal;
+src: url('valkyrie_t3_italic.woff') format('woff');
+}
+@font-face {
+font-family: valkyrie_t3_bold;
+font-style: italic;
+font-weight: bold;
+font-stretch: normal;
+src: url('valkyrie_t3_italic.woff') format('woff');
+}
+@font-face {
+font-family: valkyrie_t3_bold_italic;
+font-style: normal;
+font-weight: bold;
+font-stretch: normal;
+src: url('valkyrie_t3_italic.woff') format('woff');
+}
+@font-face {
+font-family: valkyrie_t3;
+font-style: normal;
+font-weight: normal;
+font-stretch: normal;
+src: url('valkyrie_t3_regular.woff') format('woff');
+}
+@font-face {
+font-family: valkyrie_t3_italic;
+font-style: italic;
+font-weight: normal;
+font-stretch: normal;
+src: url('valkyrie_t3_regular.woff') format('woff');
+}
+@font-face {
+font-family: valkyrie_t3_bold;
+font-style: normal;
+font-weight: bold;
+font-stretch: normal;
+src: url('valkyrie_t3_regular.woff') format('woff');
+}
+@font-face {
+font-family: valkyrie_t3_bold_italic;
+font-style: italic;
+font-weight: bold;
+font-stretch: normal;
+src: url('valkyrie_t3_regular.woff') format('woff');
+}
+@font-face {
+font-family: valkyrie_t4;
+font-style: normal;
+font-weight: bold;
+font-stretch: normal;
+src: url('valkyrie_t4_bold.woff') format('woff');
+}
+@font-face {
+font-family: valkyrie_t4_italic;
+font-style: italic;
+font-weight: bold;
+font-stretch: normal;
+src: url('valkyrie_t4_bold.woff') format('woff');
+}
+@font-face {
+font-family: valkyrie_t4_bold;
+font-style: normal;
+font-weight: normal;
+font-stretch: normal;
+src: url('valkyrie_t4_bold.woff') format('woff');
+}
+@font-face {
+font-family: valkyrie_t4_bold_italic;
+font-style: italic;
+font-weight: normal;
+font-stretch: normal;
+src: url('valkyrie_t4_bold.woff') format('woff');
+}
+@font-face {
+font-family: valkyrie_t4;
+font-style: italic;
+font-weight: bold;
+font-stretch: normal;
+src: url('valkyrie_t4_bold_italic.woff') format('woff');
+}
+@font-face {
+font-family: valkyrie_t4_italic;
+font-style: normal;
+font-weight: bold;
+font-stretch: normal;
+src: url('valkyrie_t4_bold_italic.woff') format('woff');
+}
+@font-face {
+font-family: valkyrie_t4_bold;
+font-style: italic;
+font-weight: normal;
+font-stretch: normal;
+src: url('valkyrie_t4_bold_italic.woff') format('woff');
+}
+@font-face {
+font-family: valkyrie_t4_bold_italic;
+font-style: normal;
+font-weight: normal;
+font-stretch: normal;
+src: url('valkyrie_t4_bold_italic.woff') format('woff');
+}
+@font-face {
+font-family: valkyrie_t4;
+font-style: italic;
+font-weight: normal;
+font-stretch: normal;
+src: url('valkyrie_t4_italic.woff') format('woff');
+}
+@font-face {
+font-family: valkyrie_t4_italic;
+font-style: normal;
+font-weight: normal;
+font-stretch: normal;
+src: url('valkyrie_t4_italic.woff') format('woff');
+}
+@font-face {
+font-family: valkyrie_t4_bold;
+font-style: italic;
+font-weight: bold;
+font-stretch: normal;
+src: url('valkyrie_t4_italic.woff') format('woff');
+}
+@font-face {
+font-family: valkyrie_t4_bold_italic;
+font-style: normal;
+font-weight: bold;
+font-stretch: normal;
+src: url('valkyrie_t4_italic.woff') format('woff');
+}
+@font-face {
+font-family: valkyrie_t4;
+font-style: normal;
+font-weight: normal;
+font-stretch: normal;
+src: url('valkyrie_t4_regular.woff') format('woff');
+}
+@font-face {
+font-family: valkyrie_t4_italic;
+font-style: italic;
+font-weight: normal;
+font-stretch: normal;
+src: url('valkyrie_t4_regular.woff') format('woff');
+}
+@font-face {
+font-family: valkyrie_t4_bold;
+font-style: normal;
+font-weight: bold;
+font-stretch: normal;
+src: url('valkyrie_t4_regular.woff') format('woff');
+}
+@font-face {
+font-family: valkyrie_t4_bold_italic;
+font-style: italic;
+font-weight: bold;
+font-stretch: normal;
+src: url('valkyrie_t4_regular.woff') format('woff');
+}
+@font-face {
+font-family: valkyrie_c3;
+font-style: normal;
+font-weight: bold;
+font-stretch: normal;
+src: url('valkyrie_c3_bold.woff') format('woff');
+}
+@font-face {
+font-family: valkyrie_c3;
+font-style: italic;
+font-weight: bold;
+font-stretch: normal;
+src: url('valkyrie_c3_bold.woff') format('woff');
+}
+@font-face {
+font-family: valkyrie_c3_italic;
+font-style: normal;
+font-weight: bold;
+font-stretch: normal;
+src: url('valkyrie_c3_bold.woff') format('woff');
+}
+@font-face {
+font-family: valkyrie_c3_italic;
+font-style: italic;
+font-weight: bold;
+font-stretch: normal;
+src: url('valkyrie_c3_bold.woff') format('woff');
+}
+@font-face {
+font-family: valkyrie_c3_bold;
+font-style: normal;
+font-weight: normal;
+font-stretch: normal;
+src: url('valkyrie_c3_bold.woff') format('woff');
+}
+@font-face {
+font-family: valkyrie_c3_bold;
+font-style: italic;
+font-weight: normal;
+font-stretch: normal;
+src: url('valkyrie_c3_bold.woff') format('woff');
+}
+@font-face {
+font-family: valkyrie_c3_bold_italic;
+font-style: normal;
+font-weight: normal;
+font-stretch: normal;
+src: url('valkyrie_c3_bold.woff') format('woff');
+}
+@font-face {
+font-family: valkyrie_c3_bold_italic;
+font-style: italic;
+font-weight: normal;
+font-stretch: normal;
+src: url('valkyrie_c3_bold.woff') format('woff');
+}
+@font-face {
+font-family: valkyrie_c3;
+font-style: normal;
+font-weight: normal;
+font-stretch: normal;
+src: url('valkyrie_c3_regular.woff') format('woff');
+}
+@font-face {
+font-family: valkyrie_c3;
+font-style: italic;
+font-weight: normal;
+font-stretch: normal;
+src: url('valkyrie_c3_regular.woff') format('woff');
+}
+@font-face {
+font-family: valkyrie_c3_italic;
+font-style: normal;
+font-weight: normal;
+font-stretch: normal;
+src: url('valkyrie_c3_regular.woff') format('woff');
+}
+@font-face {
+font-family: valkyrie_c3_italic;
+font-style: italic;
+font-weight: normal;
+font-stretch: normal;
+src: url('valkyrie_c3_regular.woff') format('woff');
+}
+@font-face {
+font-family: valkyrie_c3_bold;
+font-style: normal;
+font-weight: bold;
+font-stretch: normal;
+src: url('valkyrie_c3_regular.woff') format('woff');
+}
+@font-face {
+font-family: valkyrie_c3_bold;
+font-style: italic;
+font-weight: bold;
+font-stretch: normal;
+src: url('valkyrie_c3_regular.woff') format('woff');
+}
+@font-face {
+font-family: valkyrie_c3_bold_italic;
+font-style: normal;
+font-weight: bold;
+font-stretch: normal;
+src: url('valkyrie_c3_regular.woff') format('woff');
+}
+@font-face {
+font-family: valkyrie_c3_bold_italic;
+font-style: italic;
+font-weight: bold;
+font-stretch: normal;
+src: url('valkyrie_c3_regular.woff') format('woff');
+}
+@font-face {
+font-family: valkyrie_c4;
+font-style: normal;
+font-weight: bold;
+font-stretch: normal;
+src: url('valkyrie_c4_bold.woff') format('woff');
+}
+@font-face {
+font-family: valkyrie_c4;
+font-style: italic;
+font-weight: bold;
+font-stretch: normal;
+src: url('valkyrie_c4_bold.woff') format('woff');
+}
+@font-face {
+font-family: valkyrie_c4_italic;
+font-style: normal;
+font-weight: bold;
+font-stretch: normal;
+src: url('valkyrie_c4_bold.woff') format('woff');
+}
+@font-face {
+font-family: valkyrie_c4_italic;
+font-style: italic;
+font-weight: bold;
+font-stretch: normal;
+src: url('valkyrie_c4_bold.woff') format('woff');
+}
+@font-face {
+font-family: valkyrie_c4_bold;
+font-style: normal;
+font-weight: normal;
+font-stretch: normal;
+src: url('valkyrie_c4_bold.woff') format('woff');
+}
+@font-face {
+font-family: valkyrie_c4_bold;
+font-style: italic;
+font-weight: normal;
+font-stretch: normal;
+src: url('valkyrie_c4_bold.woff') format('woff');
+}
+@font-face {
+font-family: valkyrie_c4_bold_italic;
+font-style: normal;
+font-weight: normal;
+font-stretch: normal;
+src: url('valkyrie_c4_bold.woff') format('woff');
+}
+@font-face {
+font-family: valkyrie_c4_bold_italic;
+font-style: italic;
+font-weight: normal;
+font-stretch: normal;
+src: url('valkyrie_c4_bold.woff') format('woff');
+}
+@font-face {
+font-family: valkyrie_c4;
+font-style: normal;
+font-weight: normal;
+font-stretch: normal;
+src: url('valkyrie_c4_regular.woff') format('woff');
+}
+@font-face {
+font-family: valkyrie_c4;
+font-style: italic;
+font-weight: normal;
+font-stretch: normal;
+src: url('valkyrie_c4_regular.woff') format('woff');
+}
+@font-face {
+font-family: valkyrie_c4_italic;
+font-style: normal;
+font-weight: normal;
+font-stretch: normal;
+src: url('valkyrie_c4_regular.woff') format('woff');
+}
+@font-face {
+font-family: valkyrie_c4_italic;
+font-style: italic;
+font-weight: normal;
+font-stretch: normal;
+src: url('valkyrie_c4_regular.woff') format('woff');
+}
+@font-face {
+font-family: valkyrie_c4_bold;
+font-style: normal;
+font-weight: bold;
+font-stretch: normal;
+src: url('valkyrie_c4_regular.woff') format('woff');
+}
+@font-face {
+font-family: valkyrie_c4_bold;
+font-style: italic;
+font-weight: bold;
+font-stretch: normal;
+src: url('valkyrie_c4_regular.woff') format('woff');
+}
+@font-face {
+font-family: valkyrie_c4_bold_italic;
+font-style: normal;
+font-weight: bold;
+font-stretch: normal;
+src: url('valkyrie_c4_regular.woff') format('woff');
+}
+@font-face {
+font-family: valkyrie_c4_bold_italic;
+font-style: italic;
+font-weight: bold;
+font-stretch: normal;
+src: url('valkyrie_c4_regular.woff') format('woff');
+}
+
+
+.valkyrie_t4 {
+ font-family: valkyrie_t4;
+}
+
+.valkyrie_t4_italic {
+ font-family: valkyrie_t4_italic;
+}
+
+.valkyrie_t4_bold {
+ font-family: valkyrie_t4_bold;
+}
+
+.valkyrie_t4_bold_italic {
+ font-family: valkyrie_t4_bold_italic;
+}
+
+.valkyrie_t3 {
+ font-family: valkyrie_t3;
+}
+
+.valkyrie_t3_italic {
+ font-family: valkyrie_t3_italic;
+}
+
+.valkyrie_t3_bold {
+ font-family: valkyrie_t3_bold;
+}
+
+.valkyrie_t3_bold_italic {
+ font-family: valkyrie_t3_bold_italic;
+}
+
+.valkyrie_c4 {
+ font-family: valkyrie_c4;
+}
+
+.valkyrie_c4_bold {
+ font-family: valkyrie_c4_bold;
+}
+
+.valkyrie_c3 {
+ font-family: valkyrie_c3;
+}
+
+.valkyrie_c3_bold {
+ font-family: valkyrie_c3_bold;
+}
+
+@font-face {
+font-family: thechamp_stroke;
+font-style: normal;
+font-weight: normal;
+font-stretch: normal;
+src: url('THECHAMPStroke.woff') format('woff');
+}
+
+@font-face {
+font-family: thechamp;
+font-style: normal;
+font-weight: normal;
+font-stretch: normal;
+src: url('THECHAMPRegular.woff') format('woff');
+}
+
+
+.thechamp_stroke {
+ font-family: thechamp_stroke;
+}
+
+.thechamp {
+ font-family: thechamp;
+}
+
+

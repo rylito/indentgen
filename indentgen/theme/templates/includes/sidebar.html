@@ -1,0 +1,96 @@
+##{{- $sidebar := false }}
+##{{- if eq .Kind "home" -}}
+    ##{{ $sidebar = (default .Site.Params.sidebar.home .Params.sidebar) }}
+##{{- else if eq .Kind "page" -}}
+    ##{{ $sidebar = (default .Site.Params.sidebar.single .Params.sidebar) }}
+##{{- else -}}
+    ##{{ $sidebar = (default .Site.Params.sidebar.list .Params.sidebar) }}
+##{{ end }}
+
+##{{- if $sidebar -}}
+<aside class="sidebar">
+
+
+
+<div class="widget-recent widget">
+    <h4 class="widget__title">Recent Posts</h4>
+    <div class="widget__content">
+        <ul class="widget__list">
+            ##{{- range first $recent_num $recent }}
+
+            % for p in page_store.recent()[:5]:
+            <li class="widget__item"><a class="widget__link" href="${p.url}">${p.meta['title']}</a></li>
+            % endfor
+
+            ##{{- end }}
+        </ul>
+    </div>
+</div>
+
+
+
+
+##{{- $categories := .Site.Taxonomies.categories }}
+##{{- if gt (len $categories) 0 }}
+<div class="widget-categories widget">
+    <h4 class="widget__title">Categories</h4>
+    <div class="widget__content">
+        <ul class="widget__list">
+        ##{{- range $name, $taxonomy := $categories }}
+            ##{{- with $.Site.GetPage (printf "/categories/%s" $name) }}
+            ##${taxonomies['categories']}
+
+            % for slug in taxonomies['categories']['children']:
+            <% p = taxonomies[slug]['endpoint'] %>
+            <li class="widget__item">
+                <a class="widget__link" href="${p.url}">${p.meta['title']}</a>
+            </li>
+            % endfor
+
+            ##{{- end }}
+        ##{{- end }}
+        </ul>
+    </div>
+</div>
+##{{- end }}
+
+
+
+
+
+
+##{{- $tags := .Site.Taxonomies.tags }}
+##{{- if gt (len $tags) 0 }}
+<div class="widget-taglist widget">
+    <h4 class="widget__title">Topics</h4>
+    <div class="widget__content">
+    ##{{- range $name, $taxonomy := $tags }}
+        ##{{- with $.Site.GetPage (printf "/tags/%s" $name) }}
+
+        % for slug in taxonomies['topics']['children']:
+        <% p = taxonomies[slug]['endpoint'] %>
+        <a class="widget-taglist__link widget__link btn" href="${p.url}" title="${p.meta['title']}">${p.meta['title']} (${len(p.child_pages)})</a>
+            ##{{- .Title -}}{{- if .Site.Params.widgets.tags_counter }} ({{ $taxonomy.Count }}){{ end -}}
+        % endfor
+
+        ##{{- end }}
+    ##{{- end }}
+    </div>
+</div>
+##{{- end }}
+
+
+
+
+
+##{{- $root := . }}
+##{{- with (default .Site.Params.sidebar.widgets .Params.widgets) -}}
+    ##{{- range $widget := . }}
+        ##{{- $p := printf "widgets/%s.html" $widget }}
+        ##{{- partial $p $root }}
+    ##{{- end }}
+##{{- else }}
+    ##<p class="sidebar__warning"><strong>{{ T "sidebar_warning" }}:</strong><br>{{ T "sidebar_recommendation" }}</p>
+##{{- end }}
+</aside>
+##{{- end }}
