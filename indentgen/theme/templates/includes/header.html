@@ -1,7 +1,13 @@
+<%
+    site_config = page.indentgen.config
+    title = site_config.get('title', '')
+%>
+
+
 <header class="header">
     <div class="container">
         <div class="logo">
-            <a class="logo__link" href="/" title="${site_config['title']}" rel="home">
+            <a class="logo__link" href="/" title="${title}" rel="home">
                 <div class="logo__title"></div>
                 ##{{ with .Site.Params.subtitle }}<div class="logo__tagline">{{ . }}</div>{{ end }}
             </a>

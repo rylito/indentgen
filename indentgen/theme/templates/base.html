@@ -1,6 +1,8 @@
 <%
+    site_config = page.indentgen.config
     title = site_config.get('title', '')
     description = site_config.get('description', '')
+    static_url = page.indentgen.static_url
 %>
 
 <!DOCTYPE html>
@@ -59,7 +61,7 @@
 <script async defer src="${static_url('js/menu.js')}"></script>
 ## {{- if and (.Param "comments") .IsPage }}
 
-% if not (page is UNDEFINED or page.is_taxonomy or page.meta.get('disable_comments', False)):
+% if not (page.is_home or page.is_taxonomy or page.meta.get('disable_comments', False)):
 <script async defer src="${static_url('js/comments.js')}"></script>
 % endif
 

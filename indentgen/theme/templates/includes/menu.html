@@ -7,7 +7,7 @@
         ##{{- range .Site.Menus.main }}
         ##{{- if .Name }}
 
-        % for p in taxonomies['main-menu']['endpoint'].child_pages:
+        % for p in page.indentgen.taxonomy_map['main-menu']['endpoint'].child_pages:
 
         <li class="menu__item ${ 'menu__item--active' if url == p.url else ''}">
             <a class="menu__link" href="${p.url}">

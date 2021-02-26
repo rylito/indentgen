@@ -24,7 +24,8 @@ from indentgen.taxonomy_def_set import TaxonomyDefSet
 
 from mako.template import Template
 from mako.lookup import TemplateLookup
-from indentgen.endpoints import PAGE_URL, Endpoint, ContentEndpoint, TaxonomyEndpoint, RedirectEndpoint, StaticServeEndpoint, Paginator
+from indentgen.endpoints import PAGE_URL, Endpoint, ContentEndpoint, TaxonomyEndpoint, RedirectEndpoint, StaticServeEndpoint
+from indentgen.paginator import Paginator
 from indentgen.page_store import PageStore
 #from development_server import DevelopmentServer
 #import indentgen.default_definitions
@@ -91,7 +92,7 @@ class Indentgen:
 
         #{('url_component', 'url_component', ...): Endpoint}
         self.routes = {}
-        self._add_route(Endpoint([])) # add home page
+        #self._add_route(Endpoint(self, [])) # add home page
         #print(self.routes)
         #print(Endpoint([]).get_output_path())
         #input('hold')
@@ -109,7 +110,8 @@ class Indentgen:
         self._add_taxonomy_to_page_store()
 
         #self._add_pages_to_taxonomy_map()
-        self._generate_pagination_routes()
+        self._generate_taxonomy_pagination_routes()
+        self._generate_home_pagination_routes()
 
         self._build_static_file_remapping()
 
@@ -281,7 +283,7 @@ class Indentgen:
             url_components = (f'{pk}-{slug}',) if pk is not None else (slug,)
 
             #None is for 0th page, these won't have multiple pages
-            endpoint = ContentEndpoint(url_components, None, srp, meta, taxonomy)
+            endpoint = ContentEndpoint(self, url_components, None, srp)
 
             #page_list.append(endpoint)
             page_store.add(endpoint)
@@ -289,8 +291,10 @@ class Indentgen:
             self._add_route(endpoint)
 
             if pk is not None:
-                redirect_endpoint = RedirectEndpoint((pk,), endpoint)
+                redirect_endpoint = RedirectEndpoint(self, (pk,), endpoint)
                 self._add_route(redirect_endpoint)
+
+        page_store.annotate_nav() # adds prev, next attrs to Endpoint objs for page nav
 
         self.page_store = page_store
 
@@ -324,7 +328,7 @@ class Indentgen:
             # clean this out of taxonomy map since it is stored on endpoint obj
             del info['srp']
 
-            endpoint_0 = TaxonomyEndpoint(url_components, 0, srp, {k:v for k,v in info.items() if k != 'endpoint'}, taxonomies)
+            endpoint_0 = TaxonomyEndpoint(self, url_components, 0, srp)
 
 
             # add this to taxonomy map
@@ -337,7 +341,7 @@ class Indentgen:
 
 
 
-    def _generate_pagination_routes(self):
+    def _generate_taxonomy_pagination_routes(self):
         per_page = self.config.get('per_page', self.DEFAULT_PER_PAGE)
 
         for slug, info in self.taxonomy_map.items():
@@ -360,10 +364,10 @@ class Indentgen:
             endpoint_0.child_pages = child_pages # attach this in addition to paginator, pseudo taxon only have this
 
             if not info['pseudo']:
-                base_redirect = RedirectEndpoint(url_components + [PAGE_URL] + ['1'], endpoint_0) # topic/page/1 -> topic/
+                base_redirect = RedirectEndpoint(self, url_components + [PAGE_URL] + ['1'], endpoint_0) # topic/page/1 -> topic/
                 self._add_route(base_redirect)
 
-                page_redirect = RedirectEndpoint(url_components + [PAGE_URL], endpoint_0) # topic/page -> topic/page/1
+                page_redirect = RedirectEndpoint(self, url_components + [PAGE_URL], endpoint_0) # topic/page -> topic/
                 self._add_route(page_redirect)
 
                 for endpoint in pag.gen_all_pages(endpoint_0):
@@ -388,8 +392,43 @@ class Indentgen:
             #num_pages = math.ceil(content_count / per_page)
 
             #for
+
         print(self.taxonomy_map)
         #input('HOLD')
+
+
+    def _generate_home_pagination_routes(self):
+        #self._add_route(Endpoint(self, [])) # add home page
+        per_page = self.config.get('per_page', self.DEFAULT_PER_PAGE)
+
+        endpoint_home_0 = Endpoint(self, [], 0)
+        print(endpoint_home_0.url)
+        #input('HOLD')
+
+        child_pages = self.page_store.recent()
+        pag = Paginator(child_pages, per_page)
+
+        endpoint_home_0.child_pages = child_pages # attach this in addition to paginator, for completeness although home probably won't need it
+
+        base_redirect = RedirectEndpoint(self, [] + [PAGE_URL] + ['1'], endpoint_home_0) # /page/1 -> /
+        self._add_route(base_redirect)
+
+        print(base_redirect.url)
+        #input('HOLD')
+
+
+        page_redirect = RedirectEndpoint(self, [] + [PAGE_URL], endpoint_home_0) # /page -> /
+        self._add_route(page_redirect)
+
+        print(page_redirect.url)
+        #input('HOLD')
+
+
+        for endpoint in pag.gen_all_pages(endpoint_home_0):
+            self._add_route(endpoint)
+
+
+
 
 
     def _build_static_file_remapping(self):
@@ -413,7 +452,7 @@ class Indentgen:
             static_file_mapping[srp] = {'from': f, 'to': move_to, 'srp': use_srp}
 
             components = [self.STATIC_URL] + list(use_srp.parts)
-            endpoint = StaticServeEndpoint(components, f)
+            endpoint = StaticServeEndpoint(self, components, f)
             self._add_route(endpoint)
             #print('srp:', srp)
             #print('moveto:', move_to)

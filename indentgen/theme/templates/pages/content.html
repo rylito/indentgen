@@ -17,10 +17,10 @@
 <main class="main" role="main">
     <article class="post">
         <header class="post__header">
-            <h1 class="post__title">${page.meta['title']}</h1>
+            <h1 class="post__title">${page.title}</h1>
             ##{{- with .Params.lead }}
 
-            <% lead = content_root.collectors.get('lead') %>
+            <% lead = page.root.collectors.get('lead') %>
             % if lead:
             <p class="post__lead">${lead[0]}</p>
             % endif
@@ -29,7 +29,8 @@
 
 <div class="post__meta meta">
 ##{{ partial "post_meta.html" . }}
-<%include file="/includes/post_meta.html"/>
+##<%include file="/includes/post_meta.html"/>
+<%include file="/partials/post_meta.html" args="item=page"/>
 
 ##TODO series stuff
 
@@ -49,7 +50,7 @@
         <%include file="/includes/series_links.html"/>
 
             ##${content_root.collectors}
-            ${content}
+            ${page.content}
 
         </div>
         ##{{- if .Params.tags }}
@@ -64,4 +65,5 @@
 ##{{ partial "post_nav.html" . }}
 <%include file="/includes/post_nav.html"/>
 ##{{ partial "comments.html" . }}
+<%include file="/includes/comments.html"/>
 

@@ -1,7 +1,14 @@
+##<%
+    ##series = {k:v for k,v in taxonomies.items() if v['top_level'] == 'series'}
+    ##series_for_page = set(series).intersection(page.taxonomies)
+##%>
+
 <%
-    series = {k:v for k,v in taxonomies.items() if v['top_level'] == 'series'}
-    series_for_page = set(series).intersection(page.taxonomies)
+    ##series = {k:v for k,v in taxonomies.items() if v['top_level'] == 'series'}
+    ##series_for_page = set(series).intersection(page.taxonomies)
+    series_for_page = page.get_taxonomy_group('series')
 %>
+
 
 
 
@@ -15,10 +22,10 @@
 
 ## TODO should only be one, enforce this
 
-% for series in series_for_page:
+% for series_p in series_for_page:
 
 <%
-    series_p = taxonomies[series]['endpoint']
+    ##series_p = taxonomies[series]['endpoint']
     children = series_p.child_pages
 %>
 
@@ -32,7 +39,7 @@
     ##{{- if ne $page.Permalink $permalink }}
 
             % if part_p is not page:
-    <li><a href="${part_p.url}">Part ${part_p.taxonomies[series]}: ${part_p.meta['title']}</a></li>
+    <li><a href="${part_p.url}">Part ${part_p.taxonomies[series_p.slug]}: ${part_p.title}</a></li>
             % endif
     ##{{ end }}
   ##{{- end }}

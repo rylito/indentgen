@@ -4,8 +4,9 @@
 
 
 <%
-    topics = {k:v for k,v in taxonomies.items() if v['top_level'] == 'topics'}
-    topics_for_page = set(topics).intersection(page.taxonomies)
+    ##topics = {k:v for k,v in taxonomies.items() if v['top_level'] == 'topics'}
+    ##topics_for_page = set(topics).intersection(page.taxonomies)
+    topics_for_page = page.get_taxonomy_group('topics')
 %>
 
 % if topics_for_page:
@@ -17,9 +18,9 @@
 
     <ul class="tags__list">
         ##{{- range .Params.tags }}
-        % for topic in topics_for_page:
-        <% topic_p = taxonomies[topic]['endpoint'] %>
-        <li class="tags__item"><a class="tags__link btn" href="${topic_p.url}" rel="tag">${topic_p.meta['title']}</a></li>
+        % for topic_p in topics_for_page:
+        ##<% topic_p = taxonomies[topic]['endpoint'] %>
+        <li class="tags__item"><a class="tags__link btn" href="${topic_p.url}" rel="tag">${topic_p.title}</a></li>
         % endfor
         ##{{- end }}
     </ul>

@@ -1,12 +1,44 @@
-taxonomy.html
-<br>
+##taxonomy.html
+##<br>
 
-${site_config}
-<br>
-${taxonomies}
-<br>
-${content_root}
-<br>
-${content}
-<br>
-${page}
+##${site_config}
+##<br>
+##${taxonomies}
+##<br>
+##${content_root}
+##<br>
+##${content}
+##<br>
+##${page}
+
+<%inherit file="/base.html"/>
+
+##{{ define "main" }}
+<main class="main list" role="main">
+    ##{{- with .Title }}
+    <header class="main__header">
+        <h1 class="main__title">${page.title}</h1>
+    </header>
+    ##{{- end }}
+    ##{{- with .Content }}
+    <div class="content main__content clearfix">
+        ${page.content}
+    </div>
+    ##{{- end }}
+
+
+    % for p in page.paginator_page.items:
+        ##${p.meta}
+        <%include file="/partials/summary.html" args="item=p"/>
+        ##<%include file="toolbar.html" args="current_section='members', username='ed'"/>
+    % endfor
+
+    ##{{- range .Paginator.Pages }}
+        ##{{- .Render "summary" }}
+    ##{{- end }}
+
+
+</main>
+##{{ partial "pagination.html" . }}
+<%include file="/includes/pagination.html"/>
+##{{ end }}

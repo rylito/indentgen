@@ -64,6 +64,20 @@ class PageStore:
 
         return PageStore(filtered_and_sorted)
 
+
+    def annotate_nav(self, descending=True):
+        recent = self.recent(descending)
+        prev = None
+        for endpoint in recent:
+            if prev:
+                prev.next = endpoint
+            endpoint.prev = prev
+            prev = endpoint
+
+        if recent:
+            endpoint.next = None
+
+
     def __len__(self):
         return len(self.pages)
 

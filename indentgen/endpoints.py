@@ -8,10 +8,15 @@ class Endpoint:
     #has_content = False
     srp = None
     #is_static = False
+    is_home = True
+    is_taxonomy = False
+    is_redirect = False
+    is_static = False
 
-    def __init__(self, url_components, page=None):
+    def __init__(self, indentgen_obj, url_components, page=None):
         self.url_components = url_components
         self.page = page
+        self.indentgen = indentgen_obj
 
     def get_output_path(self):
         #if not self.url_components:
@@ -26,12 +31,18 @@ class Endpoint:
 
     @property
     def url(self):
-        if not self.url_components:
+        if not self.url_components and not self.page:
             return '/'
         url = '/'.join(self.url_components)
         if self.page is not None and self.page > 0:
             url += f'/{PAGE_URL}/{self.page + 1}'
-        return f'/{url}/'
+        # all routes except home are xxx/xxx and need to
+        # have the '/' added at he beginning and end.
+        # Paginated homepage URLS are just /page/xx
+        # and so will have //page/xx if this check is
+        # not in place:
+        append_slash = '/' if url[0] != '/' else ''
+        return f"{append_slash}{url}/"
 
     @property
     def identifier(self):
@@ -39,17 +50,18 @@ class Endpoint:
 
 
     def render(self, indentgen_obj):
+        print('RENDERING', self.srp, self.url_components, self)
         #rendered, root = indentgen_obj.wisdom.get_rendered(self.srp, self.is_taxonomy)
 
         context = {
-            'static_url': indentgen_obj.static_url,
-            'taxonomies': indentgen_obj.taxonomy_map,
+            #'static_url': indentgen_obj.static_url,
+            #'taxonomies': indentgen_obj.taxonomy_map,
             #'content': rendered,
             #'content_root': root,
-            'site_config': indentgen_obj.config,
-            'page_store': indentgen_obj.page_store,
-            'url': self.url
-            #'page': self,
+            #'site_config': indentgen_obj.config,
+            #'page_store': indentgen_obj.page_store,
+            #'url': self.url
+            'page': self,
         }
 
         template = indentgen_obj.templates.get_template(self.use_template)
@@ -69,6 +81,12 @@ class Endpoint:
         #}
         #return template.render(**context)
 
+    def next_page(self):
+        return Endpoint(self.indentgen, self.url_components, self.page + 1)
+
+
+
+
 
 
 #class SrpEndpoint(Endpoint):
@@ -84,14 +102,59 @@ class Endpoint:
 class ContentEndpoint(Endpoint):
     use_template = 'pages/content.html'
     #has_content = True
-    is_taxonomy = False
+    is_home = False
 
-    def __init__(self, url_components, page, srp, meta, taxonomies={}):
-        super().__init__(url_components, page)
+    def __init__(self, indentgen_obj, url_components, page, srp):
+        super().__init__(indentgen_obj, url_components, page)
         #self.url_components = url_components
+        #self.indentgen = indentgen_obj
         self.srp = srp
-        self.meta = meta
-        self.taxonomies = taxonomies
+        #self.meta = meta
+        #self.taxonomies = taxonomies
+
+    #TODO perhaps optimize this so it doesn't read from cached wisdom .html files if only fetching root
+    def get_rendered(self):
+        # returns (rendered, root)
+        return self.indentgen.wisdom.get_rendered(self.srp, self.is_taxonomy)
+
+    @property
+    def root(self):
+        return self.get_rendered()[1]
+
+    @property
+    def content(self):
+        return self.get_rendered()[0]
+
+    #@property
+    #def collectors(self):
+        #return self.root.collectors
+
+    @property
+    def meta(self):
+        return self.root.context['meta']
+
+    @property
+    def taxonomies(self):
+        return self.meta.get('taxonomy', {})
+
+    @property
+    def title(self):
+        return self.meta['title']
+
+    @property
+    def slug(self):
+        return self.meta['slug']
+
+    def get_taxonomy_group(self, top_level_taxonomy):
+        #TODO maybe cache this in indentgen so we're not having to re-filter these over and over for every hit
+        filter_page_taxonomies = [k for k,v in self.indentgen.taxonomy_map.items() if v['top_level'] == top_level_taxonomy]
+        taxonomies_for_page =  set(filter_page_taxonomies).intersection(self.taxonomies)
+        return [self.indentgen.taxonomy_map[slug]['endpoint'] for slug in taxonomies_for_page]
+
+    def next_page(self):
+        return None # this class does not have paginated pages, so this method should never be called
+
+
 
     #@property
     #def meta(self):
@@ -100,22 +163,22 @@ class ContentEndpoint(Endpoint):
     #def get_taxonomies_by_top_level(self, tax_slug):
         #for
 
-    def render(self, indentgen_obj):
-        rendered, root = indentgen_obj.wisdom.get_rendered(self.srp, self.is_taxonomy)
+    #def render(self):
+        #rendered, root = self.get_rendered()
 
-        context = {
-            'static_url': indentgen_obj.static_url,
-            'taxonomies': indentgen_obj.taxonomy_map,
-            'content': rendered,
-            'content_root': root,
-            'site_config': indentgen_obj.config,
-            'page_store': indentgen_obj.page_store,
-            'page': self,
-            'url': self.url
-        }
+        #context = {
+            #'static_url': indentgen_obj.static_url,
+            #'taxonomies': indentgen_obj.taxonomy_map,
+            #'content': rendered,
+            #'content_root': root,
+            #'site_config': indentgen_obj.config,
+            #'page_store': indentgen_obj.page_store,
+            #'page': self,
+            #'url': self.url
+        #}
 
-        template = indentgen_obj.templates.get_template(self.use_template)
-        return template.render(**context)
+        #template = indentgen_obj.templates.get_template(self.use_template)
+        #return template.render(**context)
 
         #return wisdom.get_rendered(self.srp, self.is_taxonomy)
 
@@ -152,7 +215,8 @@ class TaxonomyEndpoint(ContentEndpoint):
         #return 
 
     def next_page(self):
-        return TaxonomyEndpoint(self.url_components, self.page + 1, self.srp, self.taxonomies)
+        return TaxonomyEndpoint(self.indentgen, self.url_components, self.page + 1, self.srp)
+
 
 
 #class PaginatedEndpoint(ContentEndpoin):
@@ -160,87 +224,54 @@ class TaxonomyEndpoint(ContentEndpoint):
 class RedirectEndpoint(Endpoint):
     use_template = 'pages/redirect.html'
     #has_content = False
+    is_home = False
+    is_redirect = True
 
-    def __init__(self, from_url_components, to_endpoint):
-        super().__init__(from_url_components, None)
+    def __init__(self, indentgen_obj, from_url_components, to_endpoint):
+        super().__init__(indentgen_obj, from_url_components, None)
         self.to_endpoint = to_endpoint
 
     @property
     def identifier(self):
         return self.to_endpoint.identifier
 
+    def next_page(self):
+        return None # this class does not have paginated pages, so this method should never be called
 
-    def render(self, indentgen_obj):
-        context = {
+
+
+
+    #def render(self, indentgen_obj):
+        #context = {
             #'static_url': indentgen_obj.static_url,
             #'taxonomies': indentgen_obj.taxonomy_map,
             #'content': rendered,
             #'content_root': rendered,
-            'site_config': indentgen_obj.config,
-            'page': self
-        }
+            #'site_config': indentgen_obj.config,
+            #'page': self
+        #}
 
-        template = indentgen_obj.templates.get_template(self.use_template)
-        return template.render(**context)
+        #template = indentgen_obj.templates.get_template(self.use_template)
+        #return template.render(**context)
 
 
 class StaticServeEndpoint(Endpoint):
     use_template = None
-    #is_static = True
+    is_static = True
+    is_home = False
 
-    def __init__(self, url_components, actual_path):
-        super().__init__(url_components, None)
+    def __init__(self, indentgen_obj, url_components, actual_path):
+        super().__init__(indentgen_obj, url_components, None)
         self.actual_path = actual_path
 
     def render(self, indentgen_obj):
         return None
 
+    def next_page(self):
+        return None # this class does not have paginated pages, so this method should never be called
 
-class Paginator:
 
-    class Page:
-        def __init__(self, paginator, page_num_0, start_index, end_index, prev_endpoint, next_endpoint):
-            self.paginator = paginator
-            self.items = paginator.items[start_index:end_index]
-            self.page_num_0 = page_num_0
-            self.start_index = start_index
-            self.end_index = end_index
-            self.prev_endpoint = prev_endpoint
-            self.next_endpoint = next_endpoint
 
-            #self.page_total = (end_index_inclusive_0 - start_index_inclusive_0) + 1
-            self.num_items_on_page = len(self.items)
-
-    def __init__(self, child_items, per_page):
-        self.items = child_items
-        self.per_page = per_page
-        self.total = len(child_items)
-        self.num_of_pages = math.ceil(self.total / per_page)
-
-    def attach_page(self, list_endpoint, prev_endpoint): # 0 based page index read off of list_endpoint_obj
-        page_num = list_endpoint.page
-        start_index = page_num * self.per_page
-        end_index = start_index + self.per_page
-        if end_index > self.total:
-            end_index = self.total
-
-        #prev_endpoint = list_endpoint.prev_page()
-        next_endpoint = list_endpoint.next_page() if (page_num + 1) < self.num_of_pages else None
-
-        #return Page(self, page_num, start_index, end_index, prev_endpoint, next_endpoint)
-        list_endpoint.paginator_page = self.Page(self, page_num, start_index, end_index, prev_endpoint, next_endpoint)
-        return list_endpoint
-
-    def gen_all_pages(self, list_endpoint_0):
-        prev_endpoint = None
-        annotated_endpoint = self.attach_page(list_endpoint_0, prev_endpoint)
-        yield annotated_endpoint
-
-        while annotated_endpoint.paginator_page.next_endpoint is not None:
-            prev_endpoint = annotated_endpoint
-            next_endpoint = annotated_endpoint.paginator_page.next_endpoint
-            annotated_endpoint = self.attach_page(next_endpoint, prev_endpoint)
-            yield annotated_endpoint
 
 
 '''
