@@ -1,7 +1,7 @@
 import re
 #import datetime
 
-from dentmark import defs_manager, TagDef
+from dentmark import defs_manager, TagDef, OptionalUnique
 #from dentmark.default_definitions.anchor import TitleContext
 #from indentgen.default_definitions import ConfigURLContext
 
@@ -12,10 +12,10 @@ config_tag_set = defs_manager.get_tag_set(CONFIG_TAG_SET)
 
 class ConfigURLContext(TagDef):
     is_context = True
-    allow_children = []
+    #allow_children = []
 
-    min_num_children = 1
-    max_num_children = 1
+    min_num_text_nodes = 1
+    max_num_text_nodes = 1
 
     url_pattern = re.compile(r'^(?P<url>[a-z0-9][a-z0-9-]*[a-z0-9])$')
 
@@ -29,14 +29,14 @@ class ConfigURLContext(TagDef):
 @config_tag_set.register()
 class ConfigRoot(TagDef):
     tag_name = 'root'
-    is_root = True
-    allow_children = ['date_archive_url', 'title', 'description', 'per_page']
 
-    unique_children = ['date_archive_url', 'title', 'description', 'per_page']
+    #allow_children = ['date_archive_url', 'title', 'description', 'per_page']
+
+    #unique_children = ['date_archive_url', 'title', 'description', 'per_page']
     #required_children = []
 
-    min_num_children = 0
-    max_num_children = 0
+    min_num_text_nodes = 0
+    max_num_text_nodes = 0
 
     def render_main(self):
         return self.context # just return the context to get the config data so we can use render. Config file has no body content, all context
@@ -45,34 +45,29 @@ class ConfigRoot(TagDef):
 class ConfigDateArchiveURL(ConfigURLContext):
     tag_name = 'date_archive_url'
 
+    parents = [OptionalUnique('root')]
+
 
 @config_tag_set.register()
-class ConfigTitle(TagDef):
+class ConfigSingleParam(TagDef):
     tag_name = 'title'
     is_context = True
-    allow_children = []
 
-    min_num_children = 1
-    max_num_children = 1
+    min_num_text_nodes = 1
+    max_num_text_nodes = 1
+
+    parents = [OptionalUnique('root')]
+
 
 
 @config_tag_set.register()
-class ConfigDescription(ConfigTitle):
+class ConfigDescription(ConfigSingleParam):
     tag_name = 'description'
-    #is_context = True
-    #allow_children = []
 
-    #min_num_children = 1
-    #max_num_children = 1
 
 @config_tag_set.register()
-class ConfigPerPage(ConfigTitle):
+class ConfigPerPage(ConfigSingleParam):
     tag_name = 'per_page'
-    #is_context = True
-    #allow_children = []
-
-    #min_num_children = 1
-    #max_num_children = 1
 
 
     def process_data(self, data):

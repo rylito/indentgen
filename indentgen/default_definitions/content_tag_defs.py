@@ -1,9 +1,9 @@
 import datetime
 
-from dentmark import defs_manager, TagDef
+from dentmark import defs_manager, TagDef, OptionalUnique, RequiredUnique
 
-from dentmark.default_definitions import Root, Paragraph
-from dentmark.default_definitions.lists import ListItem
+#from dentmark.default_definitions import Root, Paragraph
+#from dentmark.default_definitions.lists import ListItem
 from indentgen.default_definitions.config_tag_defs import ConfigURLContext
 #from indentgen.default_definitions.taxonomy_tag_defs import TaxonomyMetaContext, TAXONOMY_TAG_SET
 
@@ -16,49 +16,65 @@ class MetaTaxonomyContext(TagDef):
     tag_name = 'taxonomy'
     is_context = True
 
-    exclude_children = [] # just allow everything... will check them later with a custom tag set class
+    #exclude_children = [] # just allow everything... will check them later with a custom tag set class
+    parents = [OptionalUnique('root.meta')]
 
-    #TODO maybe default should be to make this optional?
-    # For now, I'm always going to want at least one (type)
-    min_num_children = 0 # don't allow non-context children
-    max_num_children = 0
+    min_num_text_nodes = 0 # don't allow text nodes
+    max_num_text_nodes = 0
 
     def process_data(self, data):
         return self.context
 
-
-
+    #def check_children(self, child_relations):
+        #pass
 
 
 @content_tag_set.register()
 class MetaContext(TagDef):
     tag_name = 'meta'
     is_context = True
-    allow_children = ['slug', 'title', 'pk', 'taxonomy', 'date', 'disable_comments']
+    #allow_children = ['slug', 'title', 'pk', 'taxonomy', 'date', 'disable_comments']
 
-    required_children = ['slug', 'title'] # TODO should aliases go here too? Keep it optional for now. Maybe taxonomy should be optional?
-    unique_children = ['slug', 'title', 'pk', 'taxonomy', 'date', 'disable_comments']
+    #required_children = ['slug', 'title'] # TODO should aliases go here too? Keep it optional for now. Maybe taxonomy should be optional?
+    #unique_children = ['slug', 'title', 'pk', 'taxonomy', 'date', 'disable_comments']
 
-    min_num_children = 0
-    max_num_children = 0
+    min_num_text_nodes = 0
+    max_num_text_nodes = 0
+
+    parents = [RequiredUnique('root')]
 
     def process_data(self, data):
         return self.context
 
 
 @content_tag_set.register()
+class TitleMetaContext(TagDef):
+    tag_name = 'title'
+    is_context = True
+
+    min_num_text_nodes = 1
+    max_num_text_nodes = 1
+
+    parents = [RequiredUnique('root.meta')]
+
+
+@content_tag_set.register()
 class SlugContext(ConfigURLContext):
     tag_name = 'slug'
+
+    parents = [RequiredUnique('root.meta')]
 
 
 @content_tag_set.register()
 class PKContext(TagDef):
     tag_name = 'pk'
     is_context = True
-    allow_children = []
+    #allow_children = []
 
-    min_num_children = 1
-    max_num_children = 1
+    min_num_text_nodes = 1
+    max_num_text_nodes = 1
+
+    parents = [OptionalUnique('root.meta')]
 
     def validate(self):
         val = self.get_data()
@@ -70,10 +86,12 @@ class PKContext(TagDef):
 class MetaDateContext(TagDef):
     tag_name = 'date'
     is_context = True
-    allow_children = []
+    #allow_children = []
 
-    min_num_children = 1
-    max_num_children = 1
+    min_num_text_nodes = 1
+    max_num_text_nodes = 1
+
+    parents = [OptionalUnique('root.meta')]
 
     date_format = '%Y-%m-%d'
 
@@ -92,10 +110,12 @@ class MetaDateContext(TagDef):
 class MetaDisableCommentsContext(TagDef):
     tag_name = 'disable_comments'
     is_context = True
-    allow_children = []
+    #allow_children = []
 
-    min_num_children = 0
-    max_num_children = 1
+    min_num_text_nodes = 0
+    max_num_text_nodes = 1
+
+    parents = [OptionalUnique('root.meta')]
 
     def process_data(self, data):
         if data:
@@ -112,9 +132,12 @@ class MetaDisableCommentsContext(TagDef):
 class ContentLead(TagDef):
     tag_name = 'lead'
     is_context = False
-    allow_children = []
+    #allow_children = []
 
     add_to_collector = True
+
+    #TODO this needs work - might be better to put this in meta
+    parents = [OptionalUnique('root')]
 
     def render_main(self):
         return ''
@@ -126,21 +149,20 @@ class ContentLead(TagDef):
 
 
 # patch default dentmark tags to include/exclude meta
-@content_tag_set.register(replace=True)
-class Root(Root):
-    #TODO figure out a better way to patch these with all the excludes, and taxonomy
-    exclude_children = ['date', 'pk', 'slug', 'title', 'taxonomy', 'disable_comments']
+#@content_tag_set.register(replace=True)
+#class Root(Root):
+    #exclude_children = ['date', 'pk', 'slug', 'title', 'taxonomy', 'disable_comments']
 
-    required_children = ['meta']
-    unique_children = ['meta', 'lead']
+    #required_children = ['meta']
+    #unique_children = ['meta', 'lead']
 
-@content_tag_set.register(replace=True)
-class Paragraph(Paragraph):
-    exclude_children = ['p', 'li', 'bq', 'meta', 'pk', 'slug', 'title', 'date', 'taxonomy', 'disable_comments', 'lead']
+#@content_tag_set.register(replace=True)
+#class Paragraph(Paragraph):
+    #exclude_children = ['p', 'li', 'bq', 'meta', 'pk', 'slug', 'title', 'date', 'taxonomy', 'disable_comments', 'lead']
 
-@content_tag_set.register(replace=True)
-class ListItem(ListItem):
-    exclude_children = ['meta', 'meta', 'pk', 'slug', 'title', 'date', 'taxonomy', 'disable_comments', 'lead']
+#@content_tag_set.register(replace=True)
+#class ListItem(ListItem):
+    #exclude_children = ['meta', 'meta', 'pk', 'slug', 'title', 'date', 'taxonomy', 'disable_comments', 'lead']
 
 #for k,v in content_tag_set.tag_dict.items():
     #print(k)
