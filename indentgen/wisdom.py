@@ -4,17 +4,22 @@ import pickle
 
 from indentgen.default_definitions import CONFIG_TAG_SET, TAXONOMY_TAG_SET, CONTENT_TAG_SET
 import dentmark
+from indentgen.img_resize_utils import resize
 
 
 class Wisdom:
     WISDOM_DATA = 'wisdom_data.pickle'
+    IMAGE_CACHE_DIR = 'image_cache'
+    CACHED_IMAGE_TYPE = 'png'
 
-    def __init__(self, site_path, wisdom_path, content_path, taxonomy_path, static_path, config_file_path):
+    def __init__(self, site_path, wisdom_path, content_path, taxonomy_path, static_path, img_url, img_output_path, config_file_path):
         self.site_path = site_path
         self.wisdom_path = wisdom_path
         self.content_path = content_path
         self.taxonomy_path = taxonomy_path
         self.static_path = static_path
+        self.img_url = img_url # the URL prefix where resized images should be accessd from in the HTML
+        self.img_output_path = img_output_path # directory where resized images should be published
         self.pickle_path = self.wisdom_path / self.WISDOM_DATA
 
         self.config_file_path = config_file_path
@@ -92,11 +97,19 @@ class Wisdom:
             except Exception as e:
                 raise Exception(f'{abs_content_path}: {e}')
 
-        extra_context = {} #TODO will we need to use this?
+        extra_context = {
+            'srp': key_srp,
+            'wisdom': self
+        } #TODO will we need to use this?
+
         root.pre_render(root, extra_context)
         rendered = root.render()
         #meta = root.context['meta']
         #return rendered
+
+        print(root.context)
+        print(root.collectors)
+        #input('HOLD')
 
         print('SAVING')
         abs_cached_path.parent.mkdir(parents=True, exist_ok=True)
@@ -144,3 +157,214 @@ class Wisdom:
         self.save()
 
         return config_data
+
+
+    def _get_or_create_image_version(self, relative_path, max_width, max_height, copy_original, dentmark_srp):
+
+        cache_key = (relative_path, max_width, max_height)
+
+        img_cache = self.data.get('img_cache')
+        if img_cache:
+            img_data = img_cache.get(cache_key)
+            if img_data:
+                #if img_data['mts'] == mts:
+                print('USING CACHED IMAGE URL for key', cache_key)
+                #input('HOLD')
+                img_data['copy_original'] = copy_original
+                return relative_path, img_data['serve_path'], img_data['original_serve_path']
+
+
+        full_path = self.site_path / relative_path
+
+        mts = full_path.stat().st_mtime
+        #print('resolved:', resolved)
+        #print('relative:', relative)
+
+
+        print('full_path:', full_path)
+        print('relative:', relative_path)
+
+        parent = full_path.parent
+
+        wisdom_save_dir = self.wisdom_path / self.IMAGE_CACHE_DIR / parent
+        original_name_stem = full_path.stem
+
+        print(wisdom_save_dir)
+        print(original_name_stem)
+
+        new_filename = f'{original_name_stem}_{max_width}_{max_height}.{self.CACHED_IMAGE_TYPE}'
+
+        cached_img_path = wisdom_save_dir / new_filename
+
+        print('cached_img_path', cached_img_path)
+
+
+        publish_path = (self.img_output_path / relative_path).with_name(new_filename)
+        print('publish_path', publish_path)
+
+        serve_path = ('/' + self.img_url) / publish_path.relative_to(self.img_output_path)
+        print('serve_path', serve_path)
+
+        original_publish_path = (self.img_output_path / relative_path)
+        print('original_publish_path', original_publish_path)
+
+
+        original_serve_path = ('/' + self.img_url) / original_publish_path.relative_to(self.img_output_path)
+        print('original_serve_path', original_serve_path)
+
+        img_cache = self.data.setdefault('img_cache', {})
+        img_cache[cache_key] = {'mts': mts, 'cached_path': cached_img_path, 'publish_path': publish_path, 'serve_path': serve_path, 'original_path': full_path, 'max_width': max_width, 'max_height': max_height, 'relative_path': relative_path, 'copy_original': copy_original, 'original_serve_path': original_serve_path, 'original_publish_path': original_publish_path}
+
+        # This is only needed for generating helpful exception messages. If this is called via get_image_url_by_key, then it's being called by a template and will have already been checked so it's safe to leave this out in that case, since the template has no way of passing this value
+        if dentmark_srp:
+            img_cache[cache_key]['dentmark_srp'] = dentmark_srp
+
+        self.save()
+
+        return relative_path, serve_path, original_serve_path
+
+
+    def get_image_url(self, dentmark_srp, image_relative_path, max_width, max_height, copy_original=False): # used by dentmark
+        print(dentmark_srp, image_relative_path, max_width, max_height)
+        print(self.site_path)
+        parent = dentmark_srp.parent
+        full_path = self.site_path / parent / image_relative_path
+        print('full path', full_path)
+
+        try:
+            resolved = full_path.resolve(True) # make sure the image exists
+            relative = resolved.relative_to(self.site_path) # make sure relative path doesn't ascend past the site_path
+        except (ValueError, FileNotFoundError) as e:
+            raise Exception(f"{self.site_path / dentmark_srp}: Invalid image url '{image_relative_path}'")
+
+        print('resolved', resolved)
+        print('relative', relative)
+
+        return self._get_or_create_image_version(relative, max_width, max_height, copy_original, dentmark_srp)
+
+
+
+    def get_image_url_DELME(self, dentmark_srp, image_relative_path, max_width, max_height, copy_original=False): # used by dentmark
+        print(dentmark_srp, image_relative_path, max_width, max_height)
+        print(self.site_path)
+        parent = dentmark_srp.parent
+        full_path = self.site_path / parent / image_relative_path
+        print('full path', full_path)
+
+        try:
+            resolved = full_path.resolve(True) # make sure the image exists
+            relative = resolved.relative_to(self.site_path) # make sure relative path doesn't ascend past the site_path
+        except (ValueError, FileNotFoundError) as e:
+            raise Exception(f"{self.site_path / dentmark_srp}: Invalid image url '{image_relative_path}'")
+
+
+        print('resolved', resolved)
+        print('relative', relative)
+        #input('Hold it right there')
+
+        cache_key = (relative, max_width, max_height)
+
+
+
+        img_cache = self.data.get('img_cache')
+        if img_cache:
+            img_data = img_cache.get(cache_key)
+            if img_data:
+                #if img_data['mts'] == mts:
+                print('USING CACHED IMAGE URL for key', cache_key)
+                #input('HOLD')
+                img_data['copy_original'] = copy_original
+                return relative, img_data['serve_path'], img_data['original_serve_path']
+                    #try:
+                        #with open(img_data[''], 'r') as f:
+                            #return f.read(), render_meta['root']
+                    #except FileNotFoundError:
+                        #print('CACHED render result doesnt exist - re-render')
+                        #pass
+
+
+
+
+
+        mts = resolved.stat().st_mtime
+
+        print('resolved:', resolved)
+        print('relative:', relative)
+        #print('mts:', mts)
+        #print(resolved.relative_to(self.content_path))
+
+        wisdom_save_dir = self.wisdom_path / self.IMAGE_CACHE_DIR / parent
+        original_name_stem = full_path.stem
+
+        print(wisdom_save_dir)
+        print(original_name_stem)
+
+        new_filename = f'{original_name_stem}_{max_width}_{max_height}.{self.CACHED_IMAGE_TYPE}'
+
+        cached_img_path = wisdom_save_dir / new_filename
+
+        print('cached_img_path', cached_img_path)
+
+
+        publish_path = (self.img_output_path / relative).with_name(new_filename)
+        print('publish_path', publish_path)
+
+        serve_path = ('/' + self.img_url) / publish_path.relative_to(self.img_output_path)
+        print('serve_path', serve_path)
+
+
+
+        original_publish_path = (self.img_output_path / relative)
+        print('original_publish_path', original_publish_path)
+
+
+        original_serve_path = ('/' + self.img_url) / original_publish_path.relative_to(self.img_output_path)
+        print('original_serve_path', original_serve_path)
+
+        #input('HOLD')
+
+        img_cache = self.data.setdefault('img_cache', {})
+        img_cache[cache_key] = {'mts': mts, 'cached_path': cached_img_path, 'publish_path': publish_path, 'serve_path': serve_path, 'original_path': resolved, 'dentmark_srp': dentmark_srp, 'max_width': max_width, 'max_height': max_height, 'relative_path': relative, 'copy_original': copy_original, 'original_serve_path': original_serve_path, 'original_publish_path': original_publish_path}
+
+        self.save()
+
+        #serve_url = img_path / parent / 
+
+        #print('serve:', serve_url)
+
+        #input('HOLD')
+        #self.img_path # url base for output, url that should be in the final HTML source
+        #filename
+        #filename
+        #wisdom_path = crp
+        #url
+        return relative, serve_path, original_serve_path
+
+
+    def get_image_url_by_key(self, srp_key, max_width, max_height): # used by templates
+        return self._get_or_create_image_version(srp_key, max_width, max_height, False, None)
+
+
+    def gen_cached_images(self, build=False):
+        for img_data in self.data.get('img_cache', {}).values():
+            if build:
+                original_path = img_data['original_path']
+                cached_path = img_data['cached_path']
+                #mts = original_path.stat().st_mtime 
+
+                #resized_exists = img_data['cached_path'].exists()
+
+                # TODO will prob. error if original image no longer exists. Catch and handle better
+                try:
+                    mts = original_path.stat().st_mtime
+                except FileNotFoundError as e:
+                    raise Exception(f"Error in {img_data['dentmark_srp']}: Image file not found: {img_data['relative_path']}")
+
+                if mts != img_data['mts'] or not cached_path.exists():
+                    print('THE THUMB NEEDS TO BE MADE FOR', cached_path)
+                    resize(original_path, cached_path, img_data['max_width'], img_data['max_height'])
+                else:
+                    print('we golden')
+                    #input('HOLD')
+
+            yield img_data

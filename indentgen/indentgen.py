@@ -24,7 +24,7 @@ from indentgen.taxonomy_def_set import TaxonomyDefSet
 
 from mako.template import Template
 from mako.lookup import TemplateLookup
-from indentgen.endpoints import PAGE_URL, Endpoint, ContentEndpoint, TaxonomyEndpoint, RedirectEndpoint, StaticServeEndpoint
+from indentgen.endpoints import PAGE_URL, Endpoint, ContentEndpoint, TaxonomyEndpoint, RedirectEndpoint, StaticServeEndpoint, CachedImgEndpoint
 from indentgen.paginator import Paginator
 from indentgen.page_store import PageStore
 #from development_server import DevelopmentServer
@@ -49,6 +49,8 @@ class Indentgen:
     STATIC_URL = '_static'
     CACHE_BUST_STATIC_EXTENSIONS = ('.css', '.js') #TODO put this in config.dentmark instead?
 
+    IMAGE_URL = '_img'
+
     DEFAULT_PER_PAGE = 25
 
     def __init__(self, site_path):
@@ -66,9 +68,10 @@ class Indentgen:
         #self.dentmark = Dentmark('dentmark_defs')
 
         #print(self.available_definitions)
-        #try:
-            #self.defs_module = importlib.import_module(self.CUSTOM_DEFS_MODULE_NAME)
-        #except ModuleNotFoundError:
+        try:
+            self.defs_module = importlib.import_module(self.CUSTOM_DEFS_MODULE_NAME)
+        except ModuleNotFoundError:
+            print('No custom definitions found') #TODO better error or warning here?
             ##self.defs_module = importlib.import_module(self.DEFAULT_DEFS_MODULE_NAME)
             #self.defs_module = indentgen.default_definitions
         #print(defs_module.REGISTERED_TAGS)
@@ -85,9 +88,11 @@ class Indentgen:
         self.output_path = self.site_path / self.OUTPUT_DIR
         self.static_output_path = self.output_path / self.STATIC_URL
 
+        self.img_output_path = self.output_path / self.IMAGE_URL
+
         self.config_file_path = self.site_path / self.CONFIG_FILE_NAME
 
-        self.wisdom = Wisdom(self.site_path, self.wisdom_path, self.content_path, self.taxonomy_path, self.static_path, self.config_file_path)
+        self.wisdom = Wisdom(self.site_path, self.wisdom_path, self.content_path, self.taxonomy_path, self.static_path, self.IMAGE_URL, self.img_output_path, self.config_file_path)
         self.config = self.wisdom.get_config()
 
         #{('url_component', 'url_component', ...): Endpoint}
@@ -114,6 +119,7 @@ class Indentgen:
         self._generate_home_pagination_routes()
 
         self._build_static_file_remapping()
+        self._build_resized_img_endpoints()
 
         template_dir = self.site_path / self.TEMPLATE_DIR
         template_cache_dir = self.site_path / self.TEMPLATE_CACHE_DIR
@@ -452,7 +458,8 @@ class Indentgen:
             static_file_mapping[srp] = {'from': f, 'to': move_to, 'srp': use_srp}
 
             components = [self.STATIC_URL] + list(use_srp.parts)
-            endpoint = StaticServeEndpoint(self, components, f)
+            #endpoint = StaticServeEndpoint(self, components, f)
+            endpoint = StaticServeEndpoint(self, components)
             self._add_route(endpoint)
             #print('srp:', srp)
             #print('moveto:', move_to)
@@ -464,7 +471,7 @@ class Indentgen:
         #input('HOLD static file mapping')
 
 
-    def static_url(self, srp):
+    def static_url(self, srp): # used by templates
         use_srp = self.static_file_mapping[Path(srp)]['srp']
         return f'/{self.STATIC_URL}/{use_srp}'
 
@@ -476,6 +483,38 @@ class Indentgen:
 
     #def _clear_output_dir(self):
         #shutil.rmtree(site.path / self.OUTPUT_DIR)
+
+    def _build_resized_img_endpoints(self):
+        for img_data in self.wisdom.gen_cached_images():
+            components = img_data['serve_path'].parts[1:] # drop leading '/'
+            print('img_components', components)
+            #input('HOLD')
+            endpoint = CachedImgEndpoint(self, components)
+            self._add_route(endpoint)
+
+            if img_data['copy_original']:
+                components = img_data['original_serve_path'].parts[1:] # drop leading '/'
+                endpoint = CachedImgEndpoint(self, components)
+                self._add_route(endpoint)
+
+        print(self.routes)
+        #input('HOLD')
+
+    def _copy_cached_imgs(self):
+        for img_data in self.wisdom.gen_cached_images(build=True):
+            publish_path = img_data['publish_path']
+            publish_path.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(img_data['cached_path'], publish_path)
+
+            if img_data['copy_original']:
+                publish_path = img_data['original_publish_path']
+                publish_path.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copyfile(img_data['original_path'], publish_path)
+
+
+    def get_image_url(self, srp_key, max_width, max_height): # helper/convienence relay method
+        return self.wisdom.get_image_url_by_key(srp_key, max_width, max_height)[1] # just return serve path
+
 
     def generate(self):
         # index.html
@@ -504,6 +543,7 @@ class Indentgen:
                 f.write(rendered)
 
         self._copy_static()
+        self._copy_cached_imgs()
 
 
     #def get_server(self):

@@ -16,7 +16,8 @@ setuptools.setup(
     scripts = ['bin/indentgen'],
     install_requires=[
         'dentmark',
-        'mako'
+        'mako',
+        'Pillow'
     ],
     classifiers=[
         "Programming Language :: Python :: 3",

@@ -8,10 +8,10 @@ class Endpoint:
     #has_content = False
     srp = None
     #is_static = False
-    is_home = True
+    #is_home = True
     is_taxonomy = False
     is_redirect = False
-    is_static = False
+    #is_static = False
 
     def __init__(self, indentgen_obj, url_components, page=None):
         self.url_components = url_components
@@ -47,6 +47,10 @@ class Endpoint:
     @property
     def identifier(self):
         return self.srp if self.srp is not None else self.url
+
+    @property
+    def meta(self):
+        return {} # for compatibility with templates rather that having to do hasattr checks
 
 
     def render(self, indentgen_obj):
@@ -102,7 +106,7 @@ class Endpoint:
 class ContentEndpoint(Endpoint):
     use_template = 'pages/content.html'
     #has_content = True
-    is_home = False
+    #is_home = False
 
     def __init__(self, indentgen_obj, url_components, page, srp):
         super().__init__(indentgen_obj, url_components, page)
@@ -224,7 +228,7 @@ class TaxonomyEndpoint(ContentEndpoint):
 class RedirectEndpoint(Endpoint):
     use_template = 'pages/redirect.html'
     #has_content = False
-    is_home = False
+    #is_home = False
     is_redirect = True
 
     def __init__(self, indentgen_obj, from_url_components, to_endpoint):
@@ -257,18 +261,37 @@ class RedirectEndpoint(Endpoint):
 
 class StaticServeEndpoint(Endpoint):
     use_template = None
-    is_static = True
-    is_home = False
+    #is_static = True
+    #is_home = False
 
-    def __init__(self, indentgen_obj, url_components, actual_path):
+    def __init__(self, indentgen_obj, url_components):
         super().__init__(indentgen_obj, url_components, None)
-        self.actual_path = actual_path
+        #self.actual_path = actual_path
 
     def render(self, indentgen_obj):
         return None
 
     def next_page(self):
         return None # this class does not have paginated pages, so this method should never be called
+
+
+class CachedImgEndpoint(StaticServeEndpoint):
+    pass # use a different class in case we ever need to extend this differently
+
+    #use_template = None
+    #is_static = True
+    #is_home = False
+
+    #def __init__(self, indentgen_obj, url_components, actual_path):
+        #super().__init__(indentgen_obj, url_components, None)
+        #self.actual_path = actual_path
+
+    #def render(self, indentgen_obj):
+        #return None
+
+    #def next_page(self):
+        #return None # this class does not have paginated pages, so this method should never be called
+
 
 
 
