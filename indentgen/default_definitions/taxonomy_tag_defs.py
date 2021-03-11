@@ -24,16 +24,16 @@ taxonomy_tag_set = defs_manager.copy_tag_set(TAXONOMY_TAG_SET)
     #unique_children = ['slug', 'title', 'parent', 'pseudo']
 
 
-@taxonomy_tag_set.register()
-class TaxonomyParentContext(TagDef):
-    tag_name = 'parent'
-    is_context = True
+#@taxonomy_tag_set.register()
+#class TaxonomyParentContext(TagDef):
+    #tag_name = 'parent'
+    #is_context = True
     #allow_children = []
 
-    min_num_text_nodes = 1
-    max_num_text_nodes = 1
+    #min_num_text_nodes = 1
+    #max_num_text_nodes = 1
 
-    parents = [OptionalUnique('root.meta')]
+    #parents = [OptionalUnique('root.meta')]
 
 
 @taxonomy_tag_set.register()
@@ -55,7 +55,7 @@ class TaxonomyPseudoContext(TagDef):
     def validate(self):
         if self.children:
             if self.children[0].get_data().lower() not in ('true', 'false'):
-                return f"'pseudo' tag's value must be either 'true', 'false', or [empty]. Defaults to 'true' if [empty]"
+                return f"'pseudo' tags value must be either 'true', 'false', or [empty]. Defaults to 'true' if [empty]"
 
 
 taxonomy_tag_set.register_tag(MetaContext)

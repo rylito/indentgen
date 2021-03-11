@@ -4,7 +4,7 @@ from dentmark import defs_manager, TagDef, Optional, OptionalUnique, RequiredUni
 
 from dentmark.default_definitions.anchor import Anchor, URLContext, AnchorTitleContext
 from dentmark.default_definitions.images import ImgAltContext, ImgTitleContext
-#from dentmark.default_definitions import Root, Paragraph
+from dentmark.default_definitions import Paragraph, Root
 #from dentmark.default_definitions.lists import ListItem
 from indentgen.default_definitions.config_tag_defs import ConfigURLContext
 #from indentgen.default_definitions.taxonomy_tag_defs import TaxonomyMetaContext, TAXONOMY_TAG_SET
@@ -12,6 +12,29 @@ from indentgen.default_definitions.config_tag_defs import ConfigURLContext
 CONTENT_TAG_SET = 'indentgen_content'
 
 content_tag_set = defs_manager.copy_tag_set(CONTENT_TAG_SET) # copies from default Dentmark tags by default
+
+
+@content_tag_set.register(replace=True)
+class IndentgenContentRoot(Root):
+
+    def final_root_check(self):
+        #print('HERE FINAL ROOT CHECK', self.collectors, self.context)
+        #input('HOLD')
+
+        inline_sum = self.collectors.get('sum')
+        meta_summary = self.context['meta'].get('summary')
+        pk = self.context['meta'].get('pk')
+
+        if not pk and (inline_sum or meta_summary):
+            return 'Content with no pk cannot have inline sum tags or meta summary'
+
+        if pk and (inline_sum and meta_summary):
+            return 'Cannot declare meta.summary AND inline sum tags. Remove the meta.summary or the inline sum tags.'
+
+        if pk and not (inline_sum or meta_summary):
+            return 'Content with pk must declare an inline summary with sum tags OR a meta summary'
+
+
 
 @content_tag_set.register()
 class MetaTaxonomyContext(TagDef):
@@ -78,10 +101,20 @@ class PKContext(TagDef):
 
     parents = [OptionalUnique('root.meta')]
 
+    def process_data(self, data):
+        if not data:
+            return None
+        pk = int(data[0])
+        if pk < 1:
+            raise ValueError
+        return pk
+
+
     def validate(self):
-        val = self.get_data()
-        if not val.isdigit():
-            return f"Tag '{self.tag_name}' expects a positive integer"
+        try:
+            self.get_data()
+        except ValueError:
+            return f"Tag '{self.tag_name}' expects a positive integer >= 1"
 
 
 @content_tag_set.register()
@@ -295,8 +328,38 @@ class IndentgenContentImageCaption(IndentgenContentImageAttr):
     #parents = [OptionalUnique('root.img')]
 
 
+# summary tags
 
-# patch these
+@content_tag_set.register()
+class IndentgenContentSummaryBody(TagDef):
+    tag_name = 'sum'
+    add_to_collector = True
+
+    parents = [Optional('root'), Optional('root.p')]
+
+
+@content_tag_set.register()
+class IndentgenContentSummaryMeta(TagDef):
+    tag_name = 'summary'
+    is_context = True
+
+    parents = [OptionalUnique('root.meta')]
+
+    def validate(self):
+        if not self.children:
+            return 'Meta summary cannot be blank/empty if present. Must have at least one child'
+
+    def render_main(self):
+        self.parent.context[f'{self.tag_name}_content'] = self.content
+        return ''
+
+
+# path these for summary
+@content_tag_set.register()
+class IndentgenContentSummaryParagraph(Paragraph):
+    parents = [Optional('root.sum'), Optional('root.meta.summary')]
+
+# patch these for img
 @content_tag_set.register()
 class IndentgenContentImageMetaAlt(ImgAltContext):
     parents = [Optional('root.meta.img')]

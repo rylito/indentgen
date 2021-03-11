@@ -1,32 +1,61 @@
 class PageStore:
-    def __init__(self, init=[]):
-        self.pages = init
+    def __init__(self, init=None):
+        self.pages = init if init else []
 
 
     def add(self, endpoint):
         self.pages.append(endpoint)
 
+    def remove(self, endpoint):
+        print(endpoint.url)
+        print([x.url for x in self.pages])
+        #input('HOLD')
+        self.pages.remove(endpoint)
+        #pass
 
-    def filter_pages(self):
-        filtered = []
+    def extend(self, endpoint_list_or_pagestore):
+        self.pages.extend(endpoint_list_or_pagestore)
+        #return self
+
+    def extendleft(self, endpoint_list_or_pagestore):
+        # TODO probably a way more efficient way to do this using deque or something
+        extended = []
+        for endpoint in endpoint_list_or_pagestore:
+            extended.append(endpoint)
+
         for endpoint in self.pages:
-            #if not endpoint.meta.get('date'):
-                #print(endpoint.meta)
-                #input('HOLD')
-            if (not endpoint.is_taxonomy) and endpoint.meta.get('date'): # could just use date here since taxonomies don't have dates, but be explicit
-                #print(endpoint.meta, 'ADDED', endpoint.meta.get('date'))
-                filtered.append(endpoint)
-        return PageStore(filtered)
+            extended.append(endpoint)
+
+        self.pages = extended
+
+
+
+    #def filter_pages_DELME(self):
+        #filtered = []
+        #for endpoint in self.pages:
+            #if endpoint.meta.get('pk') is not None:
+                #filtered.append(endpoint)
+        #return PageStore(filtered)
 
 
     def order_by_date(self, descending=True): # sort from latest to earliest (descending) by default
         sort = sorted(self.pages, key=lambda x: x.meta['date'], reverse=descending)
         return PageStore(sort)
 
+    def order_by_title(self, descending=False):
+        sort = sorted(self.pages, key=lambda x: x.meta['title'], reverse=descending)
+        return PageStore(sort)
 
-    def recent(self, descending=True):
-        pages = self.filter_pages() # make sure we're only ordering pages, not taxonomies and unlisted pages which don't have dates
-        return pages.order_by_date(descending)
+
+    def recent(self):
+        #pages = self.filter_pages() # make sure we're only ordering pages, not taxonomies and unlisted pages which don't have dates
+        return self.order_by_date(descending=True)
+
+    def only_taxonomies(self):
+        return PageStore([endpoint for endpoint in self.pages if endpoint.is_taxonomy])
+
+    def exclude_taxonomies(self):
+        return PageStore([endpoint for endpoint in self.pages if not endpoint.is_taxonomy])
 
 
     def filter_by_topic(self, slug):
@@ -37,7 +66,7 @@ class PageStore:
             #meta = root.context['meta']
             if slug in endpoint.taxonomies:
                 #yield endpoint
-                part = endpoint.taxonomies[slug]
+                part = endpoint.taxonomies[slug][0]
                 if part is not None:
                     collision_part = parts.get(part)
                     if collision_part is not None:
@@ -55,7 +84,7 @@ class PageStore:
         # check to make sure no missing part numbers 1 - X
         last_part = 0
         for endpoint in filtered_and_sorted:
-            part = endpoint.taxonomies[slug]
+            part = endpoint.taxonomies[slug][0]
             if part is None:
                 continue
             if part != last_part + 1:
@@ -65,8 +94,40 @@ class PageStore:
         return PageStore(filtered_and_sorted)
 
 
-    def annotate_nav(self, descending=True):
-        recent = self.recent(descending)
+    def list_view_sort(self, slug):
+        # sort precedence:
+        # 1. taxonomy order
+        # 2. taxonomies in alphabetical order
+        # 3. pages in date descending
+        # 4. pages with no date last (order doesn't matter)
+
+        ordered = []
+        taxonomies = []
+        pages = []
+        no_date = []
+
+        for endpoint in self.pages:
+            tax_info = endpoint.taxonomies.get(slug)
+            if tax_info is not None and tax_info[0] is not None:
+                ordered.append(endpoint)
+            elif endpoint.is_taxonomy:
+                taxonomies.append(endpoint)
+            elif endpoint.meta.get('date'):
+                pages.append(endpoint)
+            else:
+                no_date.append(endpoint)
+
+            ordered.sort(key=lambda x: x.taxonomies[slug][0])
+            taxonomies.sort(key=lambda x: x.meta['title'])
+            pages.sort(key=lambda x: x.meta['date'], reverse=True)
+
+        return PageStore(ordered + taxonomies + pages + no_date)
+
+    def annotate_nav(self, descending=False):
+        print([x.url for x in self.pages])
+        #input('HOLD NAV ANNO')
+        #recent = self.recent()
+        recent = self.order_by_date(descending)
         prev = None
         for endpoint in recent:
             if prev:
@@ -83,3 +144,8 @@ class PageStore:
 
     def __getitem__(self, key):
         return self.pages[key]
+
+    def __add__(self, other):
+        #self.extend(other)
+        #return self
+        return PageStore(self.pages + other.pages)

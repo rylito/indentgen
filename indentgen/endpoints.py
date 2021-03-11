@@ -113,6 +113,8 @@ class ContentEndpoint(Endpoint):
         #self.url_components = url_components
         #self.indentgen = indentgen_obj
         self.srp = srp
+        self.prev = None
+        self.next = None
         #self.meta = meta
         #self.taxonomies = taxonomies
 
@@ -136,6 +138,17 @@ class ContentEndpoint(Endpoint):
     @property
     def meta(self):
         return self.root.context['meta']
+
+    @property
+    def summary(self):
+        meta_summary = self.root.context['meta'].get('summary_content', '')
+        if meta_summary:
+            return meta_summary
+        else:
+            inline_summary_list = self.root.collectors.get('sum', [])
+            if inline_summary_list:
+                return ''.join(inline_summary_list)
+        return ''
 
     @property
     def taxonomies(self):
@@ -217,6 +230,16 @@ class TaxonomyEndpoint(ContentEndpoint):
 
     #def top_level(self):
         #return 
+
+    @property
+    def breadcrumbs(self):
+        path_titles = []
+        focused = self.indentgen.taxonomy_map[self.slug]
+        while 'parent' in focused:
+            focused = self.indentgen.taxonomy_map[focused['parent']]
+            path_titles.append({'title': focused['title'], 'url': focused['endpoint'].url})
+        path_titles.reverse()
+        return path_titles
 
     def next_page(self):
         return TaxonomyEndpoint(self.indentgen, self.url_components, self.page + 1, self.srp)
