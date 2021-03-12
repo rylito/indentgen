@@ -48,7 +48,6 @@ class PageStore:
 
 
     def recent(self):
-        #pages = self.filter_pages() # make sure we're only ordering pages, not taxonomies and unlisted pages which don't have dates
         return self.order_by_date(descending=True)
 
     def only_taxonomies(self):
@@ -56,6 +55,22 @@ class PageStore:
 
     def exclude_taxonomies(self):
         return PageStore([endpoint for endpoint in self.pages if not endpoint.is_taxonomy])
+
+    def only_dated(self):
+        return PageStore([endpoint for endpoint in self.pages if endpoint.meta.get('date')])
+
+    def group_by_date(self):
+        # (year, month (1 indexed)): PageStore
+        by_months = {}
+        # year: PageStore
+        #by_years = {}
+
+        for endpoint in self:
+            date = endpoint.meta['date']
+            by_months.setdefault((date.year, date.month), PageStore()).add(endpoint)
+            #by_years.setdefault(date.year, PageStore()).add(endpoint)
+
+        return by_months
 
 
     def filter_by_topic(self, slug):

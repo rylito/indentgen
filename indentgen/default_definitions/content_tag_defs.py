@@ -4,7 +4,10 @@ from dentmark import defs_manager, TagDef, Optional, OptionalUnique, RequiredUni
 
 from dentmark.default_definitions.anchor import Anchor, URLContext, AnchorTitleContext
 from dentmark.default_definitions.images import ImgAltContext, ImgTitleContext
-from dentmark.default_definitions import Paragraph, Root
+from dentmark.default_definitions import Paragraph, Root, BlockQuote
+from dentmark.default_definitions.emphasis import Italic
+from dentmark.default_definitions.annotation import Annotation, FootNote
+from dentmark.default_definitions.lists import UnorderedList, ListItem
 #from dentmark.default_definitions.lists import ListItem
 from indentgen.default_definitions.config_tag_defs import ConfigURLContext
 #from indentgen.default_definitions.taxonomy_tag_defs import TaxonomyMetaContext, TAXONOMY_TAG_SET
@@ -17,7 +20,7 @@ content_tag_set = defs_manager.copy_tag_set(CONTENT_TAG_SET) # copies from defau
 @content_tag_set.register(replace=True)
 class IndentgenContentRoot(Root):
 
-    def final_root_check(self):
+    def before_render(self):
         #print('HERE FINAL ROOT CHECK', self.collectors, self.context)
         #input('HOLD')
 
@@ -33,6 +36,63 @@ class IndentgenContentRoot(Root):
 
         if pk and not (inline_sum or meta_summary):
             return 'Content with pk must declare an inline summary with sum tags OR a meta summary'
+
+
+        # promote orphaned text nodes to 'p'
+        for i,child in enumerate(self.children):
+            if not child.is_element:
+                promoted_elem = child.promote(Paragraph)
+                self.children[i] = promoted_elem
+
+        # decorate last 'p' with endmark
+        if self.children:
+            last = self.children[-1]
+            if last.tag_name == 'p':
+                last.add_class('p__endmark')
+
+        # use dropcap for first p of article
+        if 'articles' in self.context['meta'].get('taxonomy', {}):
+            for child in self.children:
+                if child.is_element and child.tag_name == 'p':
+                    child.context['use_dropcap'] = ''
+                    break
+
+    #def render_main(self):
+        #return super().render_main()
+
+
+
+@content_tag_set.register(replace = True)
+class IndentgenContentParagraph(Paragraph):
+
+    parents = [Optional('root'), Optional('root.bq')]
+
+    def render_main(self):
+        classes = ''
+        if self.classes:
+            class_str = ' '.join(self.classes)
+            classes = f' class="{class_str}"'
+
+        dropcap = ''
+        first_letter = self.context.get('use_dropcap')
+
+        if first_letter:
+            dropcap = f'<span class="dropcap">{first_letter}</span>'
+
+        return f'<p{classes}>{dropcap}{self.content}</p>'
+
+
+    def before_render(self):
+        # This has to be done here prior to render, so it take effect
+        if 'use_dropcap' in self.context:
+            text_nodes = self.strip_tags()
+            first_letter = None
+            if text_nodes:
+                first_letter = text_nodes[0].text[0] if text_nodes[0].text else None
+                if first_letter:
+                    text_nodes[0].text = text_nodes[0].text[1:] # strip first letter
+                    self.context['use_dropcap'] = first_letter
+                    print(first_letter, text_nodes[0].text)
 
 
 
@@ -141,6 +201,7 @@ class MetaDateContext(TagDef):
             return f"Invalid date value for Tag '{self.tag_name}' in meta"
 
 
+
 @content_tag_set.register()
 class MetaDisableCommentsContext(TagDef):
     tag_name = 'disable_comments'
@@ -177,6 +238,20 @@ class ContentLead(TagDef):
         self.parent.context[f'{self.tag_name}_content'] = self.content
         return ''
 
+
+@content_tag_set.register()
+class ContentMetaDescription(TagDef):
+    tag_name = 'description'
+    is_context = True
+    #allow_children = []
+
+    #add_to_collector = True
+
+    parents = [RequiredUnique('root.meta')]
+
+    #def render_main(self):
+        #self.parent.context[f'{self.tag_name}_content'] = self.content
+        #return ''
 
 
 
@@ -370,17 +445,96 @@ class IndentgenContentImageMetaTitle(ImgTitleContext):
 
 
 
-@content_tag_set.register()
+@content_tag_set.register(replace=True)
 class IndentgenContentImageAnchor(Anchor):
-    parents = [Optional('root.img.attr'), Optional('root.meta.img.attr')]
+    parents = [Optional('root'), Optional('root.p'), Optional('root.p.a8n.fn'), Optional('root.img.attr'), Optional('root.meta.img.attr'), Optional('root.p.sum'), Optional('root.p.sum.i'), Optional('root.ul.li')]
 
-@content_tag_set.register()
+
+    def render_main(self):
+        url = self.context.get('url')
+        if url is None:
+            if self.content.startswith('http'):
+                url = self.content
+            else:
+                # don't add the tag. This supports the #TODO or 'deferred' links
+                return self.content
+        #elif url.isdigit():
+            #wisdom = self.extra_context['wisdom']
+            #try:
+                #url = wisdom.get_url_for_pk(int(url))
+            #except KeyError as e:
+                #raise Exception(f'Page with PK of {url} does not exist: line {self.line_no}')
+
+
+        href = f' href="{url}"' if url else ''
+
+        title = self.context.get('title')
+        title_str = f' title="{title}"' if title else ''
+
+        return f'<a{href}{title_str}>{self.content}</a>'
+
+
+@content_tag_set.register(replace=True)
 class IndentgenContentImageAnchorURL(URLContext):
-    parents = [OptionalUnique('root.img.attr.a'), OptionalUnique('root.meta.img.attr.a')]
+    parents = [OptionalUnique('root.a'), OptionalUnique('root.p.a'), Optional('root.p.a8n.fn.a'), OptionalUnique('root.img.attr.a'), OptionalUnique('root.meta.img.attr.a'), OptionalUnique('root.p.sum.i.a')]
+
+    def process_data(self, data):
+        if data[0].isdigit():
+            wisdom = self.extra_context['wisdom']
+            #try:
+            return wisdom.get_url_for_pk(int(data[0]))
+            #except KeyError as e:
+                #raise Exception(f'Page with PK of {url} does not exist: line {self.line_no}')
+        return data[0]
+
+    def validate(self):
+        raw_val = self.children[0].text
+        try:
+            self.get_data()
+        except KeyError as e:
+            return f'Page with PK of {raw_val} does not exist'
+
+
 
 @content_tag_set.register()
 class IndentgenContentImageAnchorTitle(AnchorTitleContext):
     parents = [OptionalUnique('root.img.attr.a'), OptionalUnique('root.meta.img.attr.a')]
 
+
+
+@content_tag_set.register()
+class IndentgenContentSumItalic(Italic):
+    parents = [Optional('root.p.sum'), Optional('root.bq.p')]
+
+@content_tag_set.register()
+class IndentgenContenBqA8n(Annotation):
+    parents = [Optional('root.bq.p')]
+
+@content_tag_set.register()
+class IndentgenContenBqFootnote(FootNote):
+    parents = [Optional('root.bq.p.a8n')]
+
+
+
+@content_tag_set.register(replace=True)
+class IndentgenContentBlockQuote(BlockQuote):
+
+    def before_render(self):
+        # promote orphaned text nodes to 'p'
+        for i,child in enumerate(self.children):
+            if not child.is_element:
+                promoted_elem = child.promote(Paragraph)
+                self.children[i] = promoted_elem
+
+
+@content_tag_set.register(replace=True)
+class IndentgenContentUnorderedList(UnorderedList):
+
+    def before_render(self):
+        # promote orphaned text nodes to 'li'
+        for i,child in enumerate(self.children):
+            if not child.is_element:
+                promoted_elem = child.promote(ListItem)
+                self.children[i] = promoted_elem
 
 

@@ -3,6 +3,7 @@ from dentmark import defs_manager, TagDef, OptionalUnique, RequiredUnique
 #from dentmark.default_definitions import Root, Paragraph
 #from dentmark.default_definitions.lists import ListItem
 #from indentgen.default_definitions.config_tag_defs import ConfigURLContext
+from dentmark.default_definitions import Root
 from indentgen.default_definitions.content_tag_defs import MetaContext, SlugContext, MetaTaxonomyContext, TitleMetaContext
 
 TAXONOMY_TAG_SET = 'indentgen_taxonomy'
@@ -34,6 +35,29 @@ taxonomy_tag_set = defs_manager.copy_tag_set(TAXONOMY_TAG_SET)
     #max_num_text_nodes = 1
 
     #parents = [OptionalUnique('root.meta')]
+
+
+@taxonomy_tag_set.register(replace=True)
+class IndentgenTaxonomyRoot(Root):
+
+    def before_render(self):
+        meta = self.context['meta']
+        taxonomies = meta.get('taxonomy', {})
+        slug = meta['slug']
+
+        parent = None
+
+        for tax_slug, (order, is_parent) in taxonomies.items():
+            if tax_slug == slug:
+                return f"Cannot list self as a taxonomy: '{tax_slug}'"
+
+            if is_parent:
+                if parent:
+                    return 'Cannot have more than 1 taxonomy marked as parent'
+                parent = tax_slug
+
+        if taxonomies and not parent:
+            return "A taxonomy must be set as the parent using the 'parent' tag and cannot be false"
 
 
 @taxonomy_tag_set.register()

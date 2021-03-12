@@ -1,4 +1,5 @@
 import math
+from calendar import month_name
 from pathlib import Path
 
 PAGE_URL = 'page' #TODO make this configurable in site settings?
@@ -159,6 +160,11 @@ class ContentEndpoint(Endpoint):
         return self.meta['title']
 
     @property
+    def description(self):
+        description_strs = self.meta['description']
+        return ' '.join(description_strs)
+
+    @property
     def slug(self):
         return self.meta['slug']
 
@@ -316,6 +322,40 @@ class CachedImgEndpoint(StaticServeEndpoint):
         #return None # this class does not have paginated pages, so this method should never be called
 
 
+class DateArchiveEndpoint(Endpoint):
+    use_template = 'pages/date_archive.html'
+
+    @property
+    def title(self):
+        if len(self.url_components) == 1:
+            return 'Date Archive'
+        year = self.url_components[1]
+        month = self.url_components[2] if len(self.url_components) == 3 else ''
+        if month:
+            month = month_name[int(month)]
+        return f'{month} {year}'.strip()
+
+    @property
+    def meta(self):
+        return {}
+
+    @property
+    def summary(self):
+        return ''
+
+    @property
+    def breadcrumbs(self):
+        if len(self.url_components) == 1:
+            return []
+        archive_url = f"/{self.indentgen.config['date_archive_url']}/"
+        path_titles = [{'title': 'Date Archive', 'url': archive_url }]
+        if len(self.url_components) == 3:
+            path_titles.append({'title': self.url_components[1], 'url': f'{archive_url}{self.url_components[1]}/'})
+        return path_titles
+
+
+#class DateArchiveIndexEndpoint(Endpoint):
+    #use_template = 'pages/date_archive_index.html'
 
 
 

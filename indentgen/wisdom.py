@@ -24,6 +24,9 @@ class Wisdom:
 
         self.config_file_path = config_file_path
 
+        self.pk_lookup = {} # this doesn't need to be cached in wisdom pickle, will just be re-built in memory each time when pages are iterated through
+
+
         #self.content_dentmark = Dentmark(defs_module.REGISTERED_TAGS)
         #self.taxonomy_dentmark = Dentmark(defs_module.TAXONOMY_TAGS)
 
@@ -65,6 +68,22 @@ class Wisdom:
 
 
     def get_rendered(self, key_srp, is_taxonomy = False):
+
+        # TODO this is alla bit hacky. Really, I should probabyl just pass the Indentgen instance to Wisdom, so that it
+        # can be made available as extra_context when rendering rather than having to set up these template tag helper functions
+        # here and then duplicate or relay functions around for helper features like looking images and urls
+        def save_to_pk_lookup(root):
+            if is_taxonomy:
+                return
+
+            meta = root.context['meta']
+            pk = meta.get('pk')
+            if pk:
+                slug = meta['slug']
+                url = f'/{pk}-{slug}/'
+                self.pk_lookup[pk] = url
+
+
         #abs_content_path = (self.taxonomy_path if is_taxonomy else self.content_path) / key_srp
         abs_content_path = self.site_path / key_srp
         abs_cached_path = (self.wisdom_path / key_srp).with_suffix('.html')
@@ -80,7 +99,9 @@ class Wisdom:
                     print('USING CACHED')
                     try:
                         with open(abs_cached_path, 'r') as f:
-                            return f.read(), render_meta['root']
+                            root = render_meta['root']
+                            save_to_pk_lookup(root)
+                            return f.read(), root
                     except FileNotFoundError:
                         print('CACHED render result doesnt exist - re-render')
                         pass
@@ -122,6 +143,7 @@ class Wisdom:
 
         render_cache = self.data.setdefault('render_cache', {})
         render_cache[key_srp] = {'mts': mts, 'root': root}
+        save_to_pk_lookup(root)
 
         self.save()
 
@@ -281,3 +303,7 @@ class Wisdom:
                     #input('HOLD')
 
             yield img_data
+
+
+    def get_url_for_pk(self, pk): # used in TagDefs to dynamically resolve URLS to page urls
+        return self.pk_lookup[pk]

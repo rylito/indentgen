@@ -138,7 +138,7 @@ class TaxonomyItemParentTagDef(TagDef):
     def validate(self):
         if self.children:
             if self.children[0].get_data().lower() not in ('true', 'false'):
-                return f"'parent' tags value must be either 'true', 'false', or [empty]. Defaults to 'true' if [empty]"
+                return f"'parent' tag value must be either 'true', 'false', or [empty]. Defaults to 'true' if [empty]"
 
 
 

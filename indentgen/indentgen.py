@@ -24,7 +24,7 @@ from indentgen.taxonomy_def_set import TaxonomyDefSetContent, TaxonomyDefSetTaxo
 
 from mako.template import Template
 from mako.lookup import TemplateLookup
-from indentgen.endpoints import PAGE_URL, Endpoint, ContentEndpoint, TaxonomyEndpoint, RedirectEndpoint, StaticServeEndpoint, CachedImgEndpoint
+from indentgen.endpoints import PAGE_URL, Endpoint, ContentEndpoint, TaxonomyEndpoint, RedirectEndpoint, StaticServeEndpoint, CachedImgEndpoint, DateArchiveEndpoint
 from indentgen.paginator import Paginator
 from indentgen.page_store import PageStore
 #from development_server import DevelopmentServer
@@ -102,6 +102,8 @@ class Indentgen:
         #print(Endpoint([]).get_output_path())
         #input('hold')
 
+        #self.pk_lookup = {}
+
         self._patch_def_sets()
 
         self._build_taxonomy_map()
@@ -116,6 +118,7 @@ class Indentgen:
 
         #self._add_pages_to_taxonomy_map()
         self._generate_taxonomy_pagination_routes()
+        self._generate_date_archive_routes()
         self._generate_home_pagination_routes()
 
         self._build_static_file_remapping()
@@ -201,35 +204,26 @@ class Indentgen:
             tax_map[slug] = {'slug': slug, 'srp': srp, 'title': meta['title']}
             tax_map[slug]['pseudo'] = meta['pseudo'] if 'pseudo' in meta else False
 
-            if 'taxonomy' in meta:
-                tax_map[slug]['taxonomy'] = meta['taxonomy']
+            parent = None
 
-                parent = None
-
-                for tax_slug, (order, is_parent) in meta['taxonomy'].items():
-                    if tax_slug == slug:
-                        raise Exception(f"{srp}: Cannot list self as a taxonomy: '{tax_slug}'")
-
-                    if is_parent:
-                        if parent:
-                            raise Exception(f"{srp}: Cannot have more than 1 taxonomy marked as parent")
-                        parent = tax_slug
-
-                if len(meta['taxonomy']) > 1 and not parent:
-                    raise Exception(f"{srp}: A taxonomy must be marked as the parent since there is more than one listed")
-                elif len(meta['taxonomy']) == 1:
+            for tax_slug, (order, is_parent) in meta.get('taxonomy', {}).items():
+                if is_parent:
+                    #tax_map[slug]['parent'] = tax_slug
                     parent = tax_slug
-
-                if parent:
-                    tax_map[slug]['parent'] = parent
+                    break
 
             #print(tax_map)
             #input('TAX MAP HOLD')
 
             #TODO enforce that pseudo taxonomies cannot have children?
 
-            if 'parent' not in tax_map[slug]:
+            if parent:
+                tax_map[slug]['parent'] = parent
+            else:
                 top_level_taxonomies.append(slug)
+
+            #if 'parent' not in tax_map[slug]:
+                #top_level_taxonomies.append(slug)
 
             #else:
                 #tax_map[slug]['parent'] = meta['parent']
@@ -348,6 +342,7 @@ class Indentgen:
                 redirect_endpoint = RedirectEndpoint(self, (str(pk),), endpoint)
                 self._add_route(redirect_endpoint)
                 page_store.add(endpoint)
+                #self.pk_lookup[pk] = endpoint
             else:
                 print(endpoint.url)
                 #input('HOLD')
@@ -363,6 +358,27 @@ class Indentgen:
         #input('HOLD')
         print(self.routes)
         #input('HOLD')
+
+
+    def _make_paginated_routes(self, base_endpoint):
+        url_components = base_endpoint.url_components
+
+        print('WHHHHHAAAAT', url_components)
+
+        base_redirect = RedirectEndpoint(self, url_components + [PAGE_URL] + ['1'], base_endpoint) # 2021/3/page/1 -> 2021/3/
+        self._add_route(base_redirect)
+
+        page_redirect = RedirectEndpoint(self, url_components + [PAGE_URL], base_endpoint) # 2021/3/page -> 2021/3/
+        self._add_route(page_redirect)
+
+        #TODO this paginator stuff is a mess. clean it up. The PageStore should probably generate the paginator, not all of this attaching the paginator to the endpoint crap. Plus violating DRY doing this in like 3 places
+
+        per_page = self.config.get('per_page', self.DEFAULT_PER_PAGE)
+        pag = Paginator(base_endpoint.child_pages, per_page)
+
+        for endpoint in pag.gen_all_pages(base_endpoint):
+            self._add_route(endpoint)
+
 
 
     def _has_deep_children(self, tax_slug):
@@ -417,6 +433,7 @@ class Indentgen:
                     #eligible_child_tax_endpoints.append(self.taxonomy_map[child_slug]['endpoint'])
 
             child_pages = endpoint_0.child_pages.list_view_sort(slug)
+            endpoint_0.child_pages = child_pages
 
             print(endpoint_0.url, endpoint_0.child_pages.pages)
             #input('HOLD')
@@ -452,22 +469,7 @@ class Indentgen:
             # clean this out of taxonomy map since it is stored on endpoint obj
             #del info['srp']
 
-
-            url_components = endpoint_0.url_components
-
-
-            #if not info['pseudo']:
-            base_redirect = RedirectEndpoint(self, url_components + [PAGE_URL] + ['1'], endpoint_0) # topic/page/1 -> topic/
-            self._add_route(base_redirect)
-
-            page_redirect = RedirectEndpoint(self, url_components + [PAGE_URL], endpoint_0) # topic/page -> topic/
-            self._add_route(page_redirect)
-
-            pag = Paginator(child_pages, per_page)
-
-            for endpoint in pag.gen_all_pages(endpoint_0):
-                self._add_route(endpoint)
-
+            self._make_paginated_routes(endpoint_0)
 
 
             #else:
@@ -495,6 +497,101 @@ class Indentgen:
 
         #print(self.taxonomy_map)
         #input('HOLD')
+
+
+    def _generate_date_archive_routes(self):
+        date_archive_url = self.config.get('date_archive_url')
+        if not date_archive_url:
+            # don't make date archives
+            return
+
+        #per_page = self.config.get('per_page', self.DEFAULT_PER_PAGE)
+
+        dated_endpoints = self.page_store.only_dated() + self.non_pk_page_store.only_dated()
+        by_months = dated_endpoints.group_by_date()
+        #print([x.url for x in dated_endpoints])
+
+        #year_list = []
+        year_list_endpoint = DateArchiveEndpoint(self, [date_archive_url], 0)
+        year_list_endpoint.child_pages = PageStore()
+        #month_list = []
+        #year_archive_page_store = PageStore()
+
+        last_year = None
+        #last_month = None
+
+        for (year, month), page_store in sorted(by_months.items()): # this will iterate through the months in ascending order
+            url_components = [date_archive_url, str(year), str(month)]
+
+            month_0 = DateArchiveEndpoint(self, url_components, 0)
+
+            # archive pages should be in ascending order
+            month_0.child_pages = page_store.order_by_date(descending=False)
+            #date_archive_page_store.add(month_0)
+
+            self._make_paginated_routes(month_0)
+
+            if last_year != year or not last_year:
+                year_archive_endpoint = DateArchiveEndpoint(self, [date_archive_url, str(year)], 0)
+                year_archive_endpoint.child_pages = PageStore()
+                year_list_endpoint.child_pages.add(year_archive_endpoint)
+                #last_year[-1].child_pages.add(DateArchiveEndpoint)
+                #last_month = None
+
+            #if last_month != month or not last_month:
+                #last_year[-1].child_pages.add(DateArchiveEndpoint([date_archive_url, str(year), str(month)], 0))
+
+            year_list_endpoint.child_pages[-1].child_pages.add(month_0)
+
+            last_year = year
+            #last_month = month
+
+        # make year pages
+        for year_endpoint in year_list_endpoint.child_pages:
+            print(year_endpoint)
+            print(year_endpoint.child_pages)
+            print([x.url for x in year_endpoint.child_pages])
+            #input('HOLD')
+            self._make_paginated_routes(year_endpoint)
+
+        # make date archive root
+        self._make_paginated_routes(year_list_endpoint)
+
+        #for year, page_store in by_years.items():
+            #url_components = [date_archive_url, str(year)]
+
+            #year_0 = DateArchiveEndpoint(self, url_components, 0)
+
+            # archive pages should be in ascending order
+            #year_0.child_pages = page_store.order_by_date(descending=False)
+
+            #self._make_paginated_routes(year_0)
+
+        #if date_archive_page_store:
+            #archive_index_endpoint = DateArchiveIndexEndpoint(self, [date_archive_url], 0)
+            #archive_index_endpoint.child_pages = date_archive_page_store
+            #self._make_paginated_routes( archive_index_endpoint)
+
+        #self.date_archive_page_store = date_archive_page_store
+            #base_redirect = RedirectEndpoint(self, url_components + [PAGE_URL] + ['1'], month_0) # 2021/3/page/1 -> 2021/3/
+            #self._add_route(base_redirect)
+
+            #page_redirect = RedirectEndpoint(self, url_components + [PAGE_URL], month_0) # 2021/3/page -> 2021/3/
+            #self._add_route(page_redirect)
+
+
+            #TODO this paginator stuff is a mess. clean it up. The PageStore should probably generate the paginator, not all of this attaching the paginator to the endpoint crap. Plus violating DRY doing this in like 3 places
+
+            #pag = Paginator(month_0.child_pages, per_page)
+
+            #for endpoint in pag.gen_all_pages(month_0):
+                #self._add_route(endpoint)
+
+
+        #print(self.config)
+        #input('HOLD')
+
+
 
 
     def _generate_home_pagination_routes(self):
@@ -608,6 +705,10 @@ class Indentgen:
 
     def get_image_url(self, srp_key, max_width, max_height): # helper/convienence relay method
         return self.wisdom.get_image_url_by_key(srp_key, max_width, max_height)[1] # just return serve path
+
+
+    #def get_url_for_pk(self, pk): # used in TagDefs to dynimacially resolve URLS to pages
+        #return self.pk_lookup[pk].url
 
 
     def generate(self):
