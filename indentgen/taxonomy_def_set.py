@@ -99,9 +99,9 @@ class TaxonomyItemTagDef(TagDef):
 
     parents = [OptionalUnique('root.meta.taxonomy')]
 
-    def __init__(self, tag_name, address, line_no, indent_level, parent, order, nth_of_type, trim_left, trim_right):
+    def __init__(self, tag_name, address, line_no, indent_level, parent, root, order, nth_of_type, trim_left, trim_right):
         self.tag_name = tag_name
-        super().__init__(tag_name, address, line_no, indent_level, parent, order, nth_of_type, trim_left, trim_right)
+        super().__init__(tag_name, address, line_no, indent_level, parent, root, order, nth_of_type, trim_left, trim_right)
 
 
     def process_data(self, data):

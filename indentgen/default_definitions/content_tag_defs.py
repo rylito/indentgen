@@ -4,7 +4,7 @@ from dentmark import defs_manager, TagDef, Optional, OptionalUnique, RequiredUni
 
 from dentmark.default_definitions.anchor import Anchor, URLContext, AnchorTitleContext
 from dentmark.default_definitions.images import ImgAltContext, ImgTitleContext
-from dentmark.default_definitions import Paragraph, Root, BlockQuote
+from dentmark.default_definitions import Paragraph, Root, BlockQuote, Break
 from dentmark.default_definitions.emphasis import Italic
 from dentmark.default_definitions.annotation import Annotation, FootNote
 from dentmark.default_definitions.lists import UnorderedList, ListItem
@@ -18,7 +18,8 @@ content_tag_set = defs_manager.copy_tag_set(CONTENT_TAG_SET) # copies from defau
 
 
 @content_tag_set.register(replace=True)
-class IndentgenContentRoot(Root):
+class IndentgenContentRoot(TagDef):
+    tag_name = 'root'
 
     def before_render(self):
         #print('HERE FINAL ROOT CHECK', self.collectors, self.context)
@@ -38,6 +39,24 @@ class IndentgenContentRoot(Root):
             return 'Content with pk must declare an inline summary with sum tags OR a meta summary'
 
 
+        taxonomy = self.context['meta'].get('taxonomy', {})
+
+        # make sure bookmarks have bm tag
+        if 'bookmarks' in taxonomy:
+            if 'bm' not in self.context:
+                return "Content belonging to taxonomy 'bookmarks' must define the 'bm' tag (root.bm)"
+
+            # set the lead if it isn't declared
+            if not self.context['meta'].get('lead'):
+                pub = self.context['bm']['pub']
+                author = self.context['bm']['author']
+                self.context['meta']['lead'] = [f'By {author} / {pub}']
+                self.context['meta']['lead_content'] = f'By {author} / {pub}'
+
+            #TODO would automatically set title and description too, but these are required across typse
+            # maybe a big change/refactor in the future would be to add the ability to use entirely different TagSets
+            # for different types (basically Hugo's notion of a archetype or whatever)
+
         # promote orphaned text nodes to 'p'
         for i,child in enumerate(self.children):
             if not child.is_element:
@@ -45,20 +64,76 @@ class IndentgenContentRoot(Root):
                 self.children[i] = promoted_elem
 
         # decorate last 'p' with endmark
-        if self.children:
-            last = self.children[-1]
-            if last.tag_name == 'p':
-                last.add_class('p__endmark')
+        # use gen_tags_by_name to find nested p tags (last p tag might be in summary for short posts)
+        p_tags = list(self.gen_tags_by_name('p'))
+        if p_tags:
+            last_child = self.children[-1]
 
-        # use dropcap for first p of article
-        if 'articles' in self.context['meta'].get('taxonomy', {}):
-            for child in self.children:
+            # this check ensures that the endmark isn't added if the last child is an img or some other content that
+            # would cause the endmark to appear prior to it. Just omit the endmark for posts like this
+            if last_child.is_element and (last_child.tag_name == 'p' or last_child.tag_name == 'sum'):
+                p_tags[-1].add_class('p__endmark')
+
+
+        #if self.children:
+            #last = self.children[-1]
+            #if last.tag_name == 'p':
+                #last.add_class('p__endmark')
+            #elif last.tag_name ==
+
+            #for child in self.children:
+        #self
+
+
+        # use dropcap for first p of article and p following h3
+        if 'articles' in taxonomy:
+
+            first_found = False
+            prev_elem = None
+
+            for i,child in enumerate(self.children):
                 if child.is_element and child.tag_name == 'p':
-                    child.context['use_dropcap'] = ''
-                    break
+                    if not first_found or (prev_elem and prev_elem.tag_name == 'h3'):
+                        child.context['use_dropcap'] = ''
+                        first_found = True
+                prev_elem = child
 
     #def render_main(self):
         #return super().render_main()
+
+    def render_main(self):
+        body = f'{self.content}'
+
+        fns = self.collectors.get('fn', [])
+        fns_rendered = ''.join(fns)
+
+        taxonomy = self.context['meta'].get('taxonomy', {})
+
+        if 'bm' in self.collectors:
+            body = self.collectors['bm'][0] + body
+
+        if 'articles' in taxonomy:
+            wisdom = self.extra_context['wisdom']
+
+            if 'creative-writing' in taxonomy:
+                #body += f'<p><a href="/who-is-nally-dupri/"><img class="signature" src="/{wisdom.static_url}/img/signature_nd.png" alt="Nally Duprí" /></a></p>'
+                url = '/who-is-nally-dupri/'
+                sig_suffix = 'nd'
+                alt = 'Nally Duprí'
+            else:
+                #body += f'<p><a href="/about/"><img class="signature" src="/{wisdom.static_url}/img/signature_rd.png" alt="Ryli Dunlap" /></a></p>'
+                url = '/about/'
+                sig_suffix = 'rd'
+                alt = 'Ryli Dunlap'
+
+
+            body += f'<p><a href="{url}"><img class="signature" src="/{wisdom.static_url}/img/signature_{sig_suffix}.png" alt="{alt}" /></a></p>'
+
+        if fns_rendered:
+            body += f'<section class="footnotes" role="doc-endnotes"><hr/><ol>{fns_rendered}</ol></section>'
+
+        return body
+
 
 
 
@@ -224,6 +299,10 @@ class MetaDisableCommentsContext(TagDef):
                 return f"'{self.tag_name}' tag value must be either 'true', 'false', or [empty]. Defaults to 'true' if [empty]"
 
 
+#@content_tag_set.register()
+#class MetaFiction(TagDef):
+
+
 @content_tag_set.register()
 class ContentLead(TagDef):
     tag_name = 'lead'
@@ -305,7 +384,7 @@ class IndentgenContentImage(TagDef):
         #key, resized_serve_path, original_serve_path = wisdom.get_image_url(srp, self.content, 800, 600, copy_original=lto)
         key, resized_serve_path, original_serve_path = self.get_image_data()
 
-        #print(self.context)
+        print(self.context)
         #input('HOLD')
 
         alt = self.context.get('alt', '')
@@ -330,7 +409,7 @@ class IndentgenContentImage(TagDef):
         caption_attr_src += attr_content
 
         if caption_attr_src:
-            caption_attr_src = f'<p class="figcaption__content">{caption_attr_src}</p>'
+            caption_attr_src = f'<figcaption><p class="figcaption__content">{caption_attr_src}</p></figcaption>'
 
         return f'<figure>{img_src}{caption_attr_src}</figure>'
 
@@ -401,6 +480,8 @@ class IndentgenContentImageCaption(IndentgenContentImageAttr):
     is_context = True
 
     #parents = [OptionalUnique('root.img')]
+    def process_data(self, data):
+        return [' '.join(x.text for x in self.strip_tags())]
 
 
 # summary tags
@@ -447,7 +528,7 @@ class IndentgenContentImageMetaTitle(ImgTitleContext):
 
 @content_tag_set.register(replace=True)
 class IndentgenContentImageAnchor(Anchor):
-    parents = [Optional('root'), Optional('root.p'), Optional('root.p.a8n.fn'), Optional('root.img.attr'), Optional('root.meta.img.attr'), Optional('root.p.sum'), Optional('root.p.sum.i'), Optional('root.ul.li')]
+    parents = [Optional('root'), Optional('root.p'), Optional('root.p.a8n.fn'), Optional('root.img.attr'), Optional('root.meta.img.attr'), Optional('root.p.sum'), Optional('root.p.sum.i'), Optional('root.ul.li'), Optional('root.p.a8n.fn.i'), Optional('root.p.i'), Optional('root.img.caption')]
 
 
     def render_main(self):
@@ -476,7 +557,8 @@ class IndentgenContentImageAnchor(Anchor):
 
 @content_tag_set.register(replace=True)
 class IndentgenContentImageAnchorURL(URLContext):
-    parents = [OptionalUnique('root.a'), OptionalUnique('root.p.a'), Optional('root.p.a8n.fn.a'), OptionalUnique('root.img.attr.a'), OptionalUnique('root.meta.img.attr.a'), OptionalUnique('root.p.sum.i.a')]
+    parents = [OptionalUnique('root.a'), OptionalUnique('root.p.a'), Optional('root.p.a8n.fn.a'), OptionalUnique('root.img.attr.a'), OptionalUnique('root.meta.img.attr.a'), OptionalUnique('root.p.sum.i.a'), OptionalUnique('root.p.a8n.fn.i.a'), OptionalUnique('root.p.i.a'), OptionalUnique('root.p.sum.a')]
+
 
     def process_data(self, data):
         if data[0].isdigit():
@@ -504,7 +586,8 @@ class IndentgenContentImageAnchorTitle(AnchorTitleContext):
 
 @content_tag_set.register()
 class IndentgenContentSumItalic(Italic):
-    parents = [Optional('root.p.sum'), Optional('root.bq.p')]
+    parents = [Optional('root.p.sum'), Optional('root.bq.p'), Optional('root.p.a8n.fn'), Optional('root.p.a'), Optional('root.p.a8n.fn.a'), Optional('root.bq.p.a8n.fn')]
+
 
 @content_tag_set.register()
 class IndentgenContenBqA8n(Annotation):
@@ -514,6 +597,9 @@ class IndentgenContenBqA8n(Annotation):
 class IndentgenContenBqFootnote(FootNote):
     parents = [Optional('root.bq.p.a8n')]
 
+@content_tag_set.register()
+class IndentgenContentBr(Break):
+    parents = [Optional('root.bq.p')]
 
 
 @content_tag_set.register(replace=True)
@@ -537,4 +623,124 @@ class IndentgenContentUnorderedList(UnorderedList):
                 promoted_elem = child.promote(ListItem)
                 self.children[i] = promoted_elem
 
+
+@content_tag_set.register()
+class IndentgenContentPullQuote(TagDef):
+    tag_name = 'pq'
+    add_to_collector = True
+
+    min_num_text_nodes = 1
+    max_num_text_nodes = 1
+
+    parents = [Optional('root.p')]
+
+    def render_secondary(self):
+        pass
+
+    def render_secondary(self):
+        content = self.content
+
+        if content:
+            # make sure first letter is capitalized, so that we can pull fragments of sentences as pullquotes
+            content = content[0].upper() + content[1:]
+
+        return f'<div class="pullquote"><span class="openquote"></span><span class="quotecontent">{content}</span></div>'
+
+
+@content_tag_set.register()
+class IndentgenContentPutRef(TagDef):
+    tag_name = 'putref'
+
+    min_num_text_nodes = 1
+    max_num_text_nodes = 1
+
+    parents = [Optional('root')]
+
+    # Use get_data() here to get the value since self.content won't be available yet during the before_render check
+
+    def render_main(self):
+        id_split = self.get_data().split('-')
+        print(self.content)
+        print(id_split)
+        index = int(id_split[-1]) - 1 # tag_value is 1-indexed
+        if index < 0:
+            raise ValueError
+        print(index)
+        tag_name_key = '-'.join(id_split[:-1])
+        print(tag_name_key, index)
+        #input('HOLD')
+        return self.root.collectors[tag_name_key][index]
+
+    def before_render(self):
+        try:
+            #ValueError
+            #KeyError
+            #IndexError
+            self.render_main()
+        except (ValueError, KeyError, IndexError) as e:
+            return f'Invalid putref key: {self.get_data()}'
+
+
+@content_tag_set.register()
+class IndentgenContentBookMark(TagDef):
+    tag_name = 'bm'
+    is_context = True
+    add_to_collector = True
+
+    min_num_text_nodes = 0
+    max_num_text_nodes = 0
+
+    parents = [OptionalUnique('root')]
+
+    def process_data(self, data):
+        return self.context
+
+    def render_secondary(self):
+        pub = self.context['pub']
+        #title = self.context['title']
+        url = self.context['url']
+        author = self.context['author']
+        diigo = self.context.get('diigo')
+
+        annotated_src = ''
+        if diigo:
+            annotated_src = f' <small>[ <a href="https://diigo.com/{diigo}">Annotated Version</a> ]</small>'
+
+        return f'<p class="bookmark__link">Original Source: <a href="{url}"><i>{pub}</i></a>{annotated_src}</p>'
+
+
+@content_tag_set.register()
+class IndentgenContentBookMarkURL(TagDef):
+    tag_name = 'url'
+    is_context = True
+
+    min_num_text_nodes = 1
+    max_num_text_nodes = 1
+
+    parents = [RequiredUnique('root.bm')]
+
+@content_tag_set.register()
+class IndentgenContentBookMarkPublication(IndentgenContentBookMarkURL):
+    tag_name = 'pub'
+
+@content_tag_set.register()
+class IndentgenContentBookMarkAuthor(IndentgenContentBookMarkURL):
+    tag_name = 'author'
+
+
+
+@content_tag_set.register()
+class IndentgenContentBookMarkDiigo(TagDef):
+    tag_name = 'diigo'
+    is_context = True
+
+    min_num_text_nodes = 1
+    max_num_text_nodes = 1
+
+    parents = [OptionalUnique('root.bm')]
+
+
+#@content_tag_set.register()
+#class IndentgenContentMsg(TagDef):
+    #tag_name = 'msg'
 

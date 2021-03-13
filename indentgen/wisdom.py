@@ -12,7 +12,7 @@ class Wisdom:
     IMAGE_CACHE_DIR = 'image_cache'
     CACHED_IMAGE_TYPE = 'png'
 
-    def __init__(self, site_path, wisdom_path, content_path, taxonomy_path, static_path, img_url, img_output_path, config_file_path):
+    def __init__(self, site_path, wisdom_path, content_path, taxonomy_path, static_path, img_url, img_output_path, config_file_path, static_url):
         self.site_path = site_path
         self.wisdom_path = wisdom_path
         self.content_path = content_path
@@ -23,6 +23,7 @@ class Wisdom:
         self.pickle_path = self.wisdom_path / self.WISDOM_DATA
 
         self.config_file_path = config_file_path
+        self.static_url = static_url
 
         self.pk_lookup = {} # this doesn't need to be cached in wisdom pickle, will just be re-built in memory each time when pages are iterated through
 
@@ -122,7 +123,7 @@ class Wisdom:
             'wisdom': self
         } #TODO will we need to use this?
 
-        root.pre_render(root, extra_context)
+        root.pre_render(extra_context)
 
         try:
             rendered = root.render()

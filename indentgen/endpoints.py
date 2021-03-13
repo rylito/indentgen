@@ -1,4 +1,5 @@
 import math
+from indentgen.page_store import PageStore
 from calendar import month_name
 from pathlib import Path
 
@@ -172,7 +173,7 @@ class ContentEndpoint(Endpoint):
         #TODO maybe cache this in indentgen so we're not having to re-filter these over and over for every hit
         filter_page_taxonomies = [k for k,v in self.indentgen.taxonomy_map.items() if v['top_level'] == top_level_taxonomy]
         taxonomies_for_page =  set(filter_page_taxonomies).intersection(self.taxonomies)
-        return [self.indentgen.taxonomy_map[slug]['endpoint'] for slug in taxonomies_for_page]
+        return PageStore([self.indentgen.taxonomy_map[slug]['endpoint'] for slug in taxonomies_for_page])
 
     def next_page(self):
         return None # this class does not have paginated pages, so this method should never be called

@@ -92,7 +92,7 @@ class Indentgen:
 
         self.config_file_path = self.site_path / self.CONFIG_FILE_NAME
 
-        self.wisdom = Wisdom(self.site_path, self.wisdom_path, self.content_path, self.taxonomy_path, self.static_path, self.IMAGE_URL, self.img_output_path, self.config_file_path)
+        self.wisdom = Wisdom(self.site_path, self.wisdom_path, self.content_path, self.taxonomy_path, self.static_path, self.IMAGE_URL, self.img_output_path, self.config_file_path, self.STATIC_URL)
         self.config = self.wisdom.get_config()
 
         #{('url_component', 'url_component', ...): Endpoint}
