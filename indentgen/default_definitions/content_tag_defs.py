@@ -121,7 +121,7 @@ class IndentgenContentRoot(TagDef):
             body = self.collectors['bm'][0] + body
 
         if 'articles' in taxonomy:
-            wisdom = self.extra_context['wisdom']
+            indentgen = self.extra_context['indentgen']
 
             if 'creative-writing' in taxonomy:
                 #body += f'<p><a href="/who-is-nally-dupri/"><img class="signature" src="/{wisdom.static_url}/img/signature_nd.png" alt="Nally Duprí" /></a></p>'
@@ -135,7 +135,7 @@ class IndentgenContentRoot(TagDef):
                 alt = 'Ryli Dunlap'
 
 
-            body += f'<p><a href="{url}"><img class="signature" src="/{wisdom.static_url}/img/signature_{sig_suffix}.png" alt="{alt}" /></a></p>'
+            body += f'<p><a href="{url}"><img class="signature" src="/{indentgen.STATIC_URL}/img/signature_{sig_suffix}.png" alt="{alt}" /></a></p>'
 
         if fns_rendered:
             body += f'<section class="footnotes" role="doc-endnotes"><hr/><ol>{fns_rendered}</ol></section>'
@@ -404,7 +404,7 @@ class IndentgenContentImage(TagDef):
 
     def get_image_data(self):
         srp = self.extra_context['srp']
-        wisdom = self.extra_context['wisdom']
+        wisdom = self.extra_context['indentgen'].wisdom
         lto = self.context.get('link_to_original', False)
         return wisdom.get_image_url(srp, self.content, self.MAX_WIDTH, self.MAX_HEIGHT, copy_original=lto)
 
@@ -594,9 +594,10 @@ class IndentgenContentImageAnchorURL(URLContext):
         if data[0].isdigit():
             print(self.extra_context)
             #input('HOLD HERE')
-            wisdom = self.extra_context['wisdom']
+            indentgen = self.extra_context['indentgen']
+            url = indentgen.pk_link_map[int(data[0])]
             #try:
-            return wisdom.get_url_for_pk(int(data[0]))
+            return f'/{url}/' # indentgen.pk_link_map has raw component without slashes... add them here to make it an absolute link
             #except KeyError as e:
                 #raise Exception(f'Page with PK of {url} does not exist: line {self.line_no}')
         return data[0]

@@ -92,7 +92,8 @@ class Indentgen:
 
         self.config_file_path = self.site_path / self.CONFIG_FILE_NAME
 
-        self.wisdom = Wisdom(self.site_path, self.wisdom_path, self.content_path, self.taxonomy_path, self.static_path, self.IMAGE_URL, self.img_output_path, self.config_file_path, self.STATIC_URL)
+        #self.wisdom = Wisdom(self.site_path, self.wisdom_path, self.content_path, self.taxonomy_path, self.static_path, self.IMAGE_URL, self.img_output_path, self.config_file_path, self.STATIC_URL)
+        self.wisdom = Wisdom(self)
         self.config = self.wisdom.get_config()
 
         #{('url_component', 'url_component', ...): Endpoint}
@@ -103,6 +104,7 @@ class Indentgen:
         #input('hold')
 
         #self.pk_lookup = {}
+        self.pk_link_map = {}
 
         self._patch_def_sets()
 
@@ -110,6 +112,11 @@ class Indentgen:
         self._check_taxonomy_tags_meta(is_taxonomy=True)
 
         #self._build_taxonomy_tags()
+
+        # do a pass of the content parsing only the meta to build the PK map so that
+        # all pks are known prior to rendering the full page content
+        self._pre_populate_meta_pk()
+
         self._build_page_store()
         self._check_taxonomy_tags_meta(is_taxonomy=False)
 
@@ -143,7 +150,7 @@ class Indentgen:
     #def get_rendered(self):
         #aoeu
 
-    def _gen_walk_content(self, is_taxonomy=False):
+    def _gen_walk_content(self, is_taxonomy=False, meta_only=False):
         #content_path = self.site_path.joinpath(self.CONTENT_DIR)
         use_path = self.taxonomy_path if is_taxonomy else self.content_path
         print('Globbing:', use_path)
@@ -152,7 +159,7 @@ class Indentgen:
             srp = f.relative_to(self.site_path)
             print('srp:', srp)
 
-            rendered, meta = self.wisdom.get_rendered(srp, is_taxonomy)
+            rendered, meta = self.wisdom.get_rendered(srp, is_taxonomy, meta_only)
             yield srp, rendered, meta
 
 
@@ -302,7 +309,23 @@ class Indentgen:
                 #input('HOLD')
 
 
+    def _get_page_url(self, root):
+        #TODO make this configurable in setting whether to use pk shortcuts or not
+        meta = root.context['meta']
+        pk = meta.get('pk')
+        slug = meta['slug']
+        return f'{pk}-{slug}' if pk is not None else slug
 
+
+    # first pass is to resolve all of the pks in the meta, so that they are available
+    # when rendering the full body. This is needed to reslove link url's that are PKs in the dentmark
+    def _pre_populate_meta_pk(self):
+        for srp, rendered, root in self._gen_walk_content(is_taxonomy=False, meta_only=True):
+            pk = root.context['meta'].get('pk')
+            if pk:
+                self.pk_link_map[pk] = self._get_page_url(root)
+        print(self.pk_link_map)
+        #input('HOLD')
 
 
     def _build_page_store(self):
@@ -310,11 +333,11 @@ class Indentgen:
         non_pk_page_store = PageStore()
         #page_urls = {}
         for srp, rendered, root in self._gen_walk_content(is_taxonomy=False):
-            meta = root.context['meta']
+            #meta = root.context['meta']
 
             # make sure taxonomies are valid
             #taxonomy = meta.get('taxonomy', [])
-            print('meta', meta)
+            #print('meta', meta)
             #input('HOLD')
             #if taxonomy:
                 #for tax in taxonomy:
@@ -324,11 +347,10 @@ class Indentgen:
                         #raise Exception(f"{srp} contains invalid taxonomy slug: {tax}")
 
 
-            #TODO make this configurable in setting whether to use pk shortcuts or not
-            pk = meta.get('pk')
-            slug = meta['slug']
-
-            url_components = (f'{pk}-{slug}',) if pk is not None else (slug,)
+            #slug = meta['slug']
+            #url = self._get_page_url(root)
+            #url_components = (f'{pk}-{slug}',) if pk is not None else (slug,)
+            url_components = (self._get_page_url(root),)
 
             #None is for 0th page, these won't have multiple pages
             endpoint = ContentEndpoint(self, url_components, None, srp)
@@ -337,6 +359,8 @@ class Indentgen:
             #page_store.add(endpoint)
 
             self._add_route(endpoint)
+
+            pk = root.context['meta'].get('pk')
 
             if pk is not None:
                 redirect_endpoint = RedirectEndpoint(self, (str(pk),), endpoint)

@@ -7,23 +7,31 @@ import dentmark
 from indentgen.img_resize_utils import resize
 
 
+class PickleableTagDef:
+    def __init__(self, context, collectors):
+        self.context = context
+        self.collectors = collectors
+
+
 class Wisdom:
     WISDOM_DATA = 'wisdom_data.pickle'
     IMAGE_CACHE_DIR = 'image_cache'
     CACHED_IMAGE_TYPE = 'png'
 
-    def __init__(self, site_path, wisdom_path, content_path, taxonomy_path, static_path, img_url, img_output_path, config_file_path, static_url):
-        self.site_path = site_path
-        self.wisdom_path = wisdom_path
-        self.content_path = content_path
-        self.taxonomy_path = taxonomy_path
-        self.static_path = static_path
-        self.img_url = img_url # the URL prefix where resized images should be accessd from in the HTML
-        self.img_output_path = img_output_path # directory where resized images should be published
+    #def __init__(self, site_path, wisdom_path, content_path, taxonomy_path, static_path, img_url, img_output_path, config_file_path, static_url):
+    def __init__(self, indentgen_inst):
+        self.indentgen = indentgen_inst
+        self.site_path = indentgen_inst.site_path
+        self.wisdom_path = indentgen_inst.wisdom_path
+        self.content_path = indentgen_inst.content_path
+        self.taxonomy_path = indentgen_inst.taxonomy_path
+        self.static_path = indentgen_inst.static_path
+        self.img_url = indentgen_inst.IMAGE_URL # the URL prefix where resized images should be accessd from in the HTML
+        self.img_output_path = indentgen_inst.img_output_path # directory where resized images should be published
         self.pickle_path = self.wisdom_path / self.WISDOM_DATA
 
-        self.config_file_path = config_file_path
-        self.static_url = static_url
+        self.config_file_path = indentgen_inst.config_file_path
+        #self.static_url = indentgen_inst.STATIC_URL
 
 
 
@@ -67,7 +75,7 @@ class Wisdom:
         return new_srp
 
 
-    def get_rendered(self, key_srp, is_taxonomy = False):
+    def get_rendered(self, key_srp, is_taxonomy = False, meta_only=False):
 
 
         #abs_content_path = (self.taxonomy_path if is_taxonomy else self.content_path) / key_srp
@@ -77,19 +85,20 @@ class Wisdom:
         print('getting timestamp for', abs_content_path)
         mts = abs_content_path.stat().st_mtime
 
-        render_cache = self.data.get('render_cache')
-        if render_cache:
-            render_meta = render_cache.get(key_srp)
-            if render_meta:
-                if render_meta['mts'] == mts:
-                    print('USING CACHED')
-                    try:
-                        with open(abs_cached_path, 'r') as f:
-                            root = render_meta['root']
-                            return f.read(), root
-                    except FileNotFoundError:
-                        print('CACHED render result doesnt exist - re-render')
-                        pass
+        if not meta_only:
+            render_cache = self.data.get('render_cache')
+            if render_cache:
+                render_meta = render_cache.get(key_srp)
+                if render_meta:
+                    if render_meta['mts'] == mts:
+                        print('USING CACHED')
+                        try:
+                            with open(abs_cached_path, 'r') as f:
+                                root = render_meta['root']
+                                return f.read(), root
+                        except FileNotFoundError:
+                            print('CACHED render result doesnt exist - re-render')
+                            pass
 
         print('RENDERING')
 
@@ -97,17 +106,23 @@ class Wisdom:
 
         extra_context = {
             'srp': key_srp,
-            'wisdom': self
+            'indentgen': self.indentgen
         } #TODO will we need to use this?
 
         with open(abs_content_path, 'r') as f:
             #rendered = self.dentmark.render(f)
             try:
-                root = dentmark.parse(f, TAXONOMY_TAG_SET if is_taxonomy else CONTENT_TAG_SET, extra_context)
+                only_address = 'root.meta' if meta_only else None
+                root = dentmark.parse(f, TAXONOMY_TAG_SET if is_taxonomy else CONTENT_TAG_SET, extra_context, only_address)
             except Exception as e:
                 raise Exception(f'{abs_content_path}: {e}')
 
         root.pre_render()
+
+        if meta_only:
+            print('meta only root context', root.context)
+            #input('hold pk check')
+            return '', root
 
         try:
             rendered = root.render()
@@ -127,7 +142,8 @@ class Wisdom:
             f.write(rendered)
 
         render_cache = self.data.setdefault('render_cache', {})
-        render_cache[key_srp] = {'mts': mts, 'root': root}
+        pickleable_root = PickleableTagDef(root.context, root.collectors)
+        render_cache[key_srp] = {'mts': mts, 'root': pickleable_root}
 
         self.save()
 
