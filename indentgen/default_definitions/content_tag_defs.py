@@ -5,7 +5,7 @@ from dentmark import defs_manager, TagDef, Optional, OptionalUnique, RequiredUni
 from dentmark.default_definitions.anchor import Anchor, URLContext, AnchorTitleContext
 from dentmark.default_definitions.images import ImgAltContext, ImgTitleContext
 from dentmark.default_definitions import Paragraph, Root, BlockQuote, Break
-from dentmark.default_definitions.emphasis import Italic
+from dentmark.default_definitions.emphasis import Italic #, HighLight
 from dentmark.default_definitions.annotation import Annotation, FootNote
 from dentmark.default_definitions.lists import UnorderedList, ListItem
 #from dentmark.default_definitions.lists import ListItem
@@ -85,17 +85,25 @@ class IndentgenContentRoot(TagDef):
         #self
 
 
-        # use dropcap for first p of article and p following h3
+        # use dropcap for first p of article and p following h2
+        # use gen_tags_by_name to find nested p tags (first p tag might be in summary)
         if 'articles' in taxonomy:
 
             first_found = False
-            prev_elem = None
+            #prev_elem = None
 
-            for i,child in enumerate(self.children):
+            for child in self.gen_tags_by_name('p'):
                 if child.is_element and child.tag_name == 'p':
-                    if not first_found or (prev_elem and prev_elem.tag_name == 'h3'):
+                    #if not first_found or (prev_elem and prev_elem.tag_name == 'h2'):
+                    prev_elem = child.prev_sibling()
+                    prev_elem_tag = (prev_elem and prev_elem.is_element and prev_elem.tag_name) or None
+                    if not first_found or prev_elem_tag == 'h2':
                         child.context['use_dropcap'] = ''
                         first_found = True
+                        #input('WE HIT')
+
+                    if prev_elem_tag == 'h3':
+                        child.context['use_leadin'] = ''
                 prev_elem = child
 
     #def render_main(self):
@@ -140,7 +148,7 @@ class IndentgenContentRoot(TagDef):
 @content_tag_set.register(replace = True)
 class IndentgenContentParagraph(Paragraph):
 
-    parents = [Optional('root'), Optional('root.bq')]
+    parents = [Optional('root'), Optional('root.sum'), Optional('root.meta.summary'), Optional('root.bq'), Optional('root.conv.msg'), Optional('root.p.a8n.fn.bq')]
 
     def render_main(self):
         classes = ''
@@ -154,13 +162,25 @@ class IndentgenContentParagraph(Paragraph):
         if first_letter:
             dropcap = f'<span class="dropcap">{first_letter}</span>'
 
-        return f'<p{classes}>{dropcap}{self.content}</p>'
+        leadin = ''
+        leadin_txt = self.context.get('use_leadin')
+
+        if leadin_txt:
+            commaspace = '' if self.content[0] == ',' else ' '
+            leadin = f'<span class="leadin">{leadin_txt}</span>{commaspace}'
+
+        return f'<p{classes}>{dropcap}{leadin}{self.content}</p>'
 
 
     def before_render(self):
         # This has to be done here prior to render, so it take effect
+        #print(self.children[0].text)
+        #input('HOLD')
+
+        text_nodes = self.strip_tags()
+
         if 'use_dropcap' in self.context:
-            text_nodes = self.strip_tags()
+            #text_nodes = self.strip_tags()
             first_letter = None
             if text_nodes:
                 first_letter = text_nodes[0].text[0] if text_nodes[0].text else None
@@ -169,7 +189,19 @@ class IndentgenContentParagraph(Paragraph):
                     self.context['use_dropcap'] = first_letter
                     print(first_letter, text_nodes[0].text)
 
-
+        if 'use_leadin' in self.context:
+            if text_nodes:
+                first_part = text_nodes[0].text if text_nodes[0].text else None
+                if first_part:
+                    # only go up to comma if it is present
+                    before_comma = first_part.split(',')[0]
+                    words = before_comma.split(' ')[:5] # max number of words for lead-in
+                    rejoin = ' '.join(words)
+                    # trim the leadin text off the text node
+                    text_nodes[0].text = first_part[len(rejoin):]
+                    self.context['use_leadin'] = rejoin
+                    print(rejoin)
+                    #input('HALTEN')
 
 @content_tag_set.register()
 class MetaTaxonomyContext(TagDef):
@@ -491,7 +523,7 @@ class IndentgenContentSummaryBody(TagDef):
     tag_name = 'sum'
     add_to_collector = True
 
-    parents = [Optional('root'), Optional('root.p')]
+    parents = [Optional('root'), Optional('root.p'), Optional('root.p.a8n')]
 
 
 @content_tag_set.register()
@@ -511,9 +543,6 @@ class IndentgenContentSummaryMeta(TagDef):
 
 
 # path these for summary
-@content_tag_set.register()
-class IndentgenContentSummaryParagraph(Paragraph):
-    parents = [Optional('root.sum'), Optional('root.meta.summary')]
 
 # patch these for img
 @content_tag_set.register()
@@ -528,7 +557,8 @@ class IndentgenContentImageMetaTitle(ImgTitleContext):
 
 @content_tag_set.register(replace=True)
 class IndentgenContentImageAnchor(Anchor):
-    parents = [Optional('root'), Optional('root.p'), Optional('root.p.a8n.fn'), Optional('root.img.attr'), Optional('root.meta.img.attr'), Optional('root.p.sum'), Optional('root.p.sum.i'), Optional('root.ul.li'), Optional('root.p.a8n.fn.i'), Optional('root.p.i'), Optional('root.img.caption')]
+    parents = [Optional('root'), Optional('root.p'), Optional('root.p.a8n.fn'), Optional('root.bq.a8n.fn'), Optional('root.img.attr'), Optional('root.meta.img.attr'), Optional('root.p.sum'), Optional('root.p.sum.i'), Optional('root.sum.p'), Optional('root.ul.li'), Optional('root.p.a8n.fn.i'), Optional('root.p.i'), Optional('root.img.caption'), Optional('root.conv.msg.p'), Optional('root.bq.p.a8n.fn'), Optional('root.ul.li.a8n.fn.i')]
+
 
 
     def render_main(self):
@@ -557,11 +587,13 @@ class IndentgenContentImageAnchor(Anchor):
 
 @content_tag_set.register(replace=True)
 class IndentgenContentImageAnchorURL(URLContext):
-    parents = [OptionalUnique('root.a'), OptionalUnique('root.p.a'), Optional('root.p.a8n.fn.a'), OptionalUnique('root.img.attr.a'), OptionalUnique('root.meta.img.attr.a'), OptionalUnique('root.p.sum.i.a'), OptionalUnique('root.p.a8n.fn.i.a'), OptionalUnique('root.p.i.a'), OptionalUnique('root.p.sum.a')]
+    parents = [OptionalUnique('root.a'), OptionalUnique('root.p.a'), Optional('root.p.a8n.fn.a'), Optional('root.bq.a8n.fn.a'), OptionalUnique('root.img.attr.a'), OptionalUnique('root.meta.img.attr.a'), OptionalUnique('root.p.sum.i.a'), OptionalUnique('root.p.a8n.fn.i.a'), OptionalUnique('root.p.i.a'), OptionalUnique('root.p.sum.a'), Optional('root.conv.msg.p.a'), Optional('root.bq.p.a8n.fn.a'), Optional('root.ul.li.a8n.fn.i.a')]
 
 
     def process_data(self, data):
         if data[0].isdigit():
+            print(self.extra_context)
+            #input('HOLD HERE')
             wisdom = self.extra_context['wisdom']
             #try:
             return wisdom.get_url_for_pk(int(data[0]))
@@ -571,10 +603,10 @@ class IndentgenContentImageAnchorURL(URLContext):
 
     def validate(self):
         raw_val = self.children[0].text
-        try:
-            self.get_data()
-        except KeyError as e:
-            return f'Page with PK of {raw_val} does not exist'
+        #try:
+        self.get_data()
+        #except KeyError as e:
+            #return f'Page with PK of {raw_val} does not exist'
 
 
 
@@ -586,24 +618,29 @@ class IndentgenContentImageAnchorTitle(AnchorTitleContext):
 
 @content_tag_set.register()
 class IndentgenContentSumItalic(Italic):
-    parents = [Optional('root.p.sum'), Optional('root.bq.p'), Optional('root.p.a8n.fn'), Optional('root.p.a'), Optional('root.p.a8n.fn.a'), Optional('root.bq.p.a8n.fn')]
+    parents = [Optional('root.p.sum'), Optional('root.bq.p'), Optional('root.p.a8n.fn'), Optional('root.p.a'), Optional('root.p.a8n.fn.a'), Optional('root.bq.p.a8n.fn'), Optional('root.p.pq'), Optional('root.p.a8n'), Optional('root.img.caption'), Optional('root.ul.li.a8n.fn')]
 
+#@content_tag_set.register()
+#class IndentgenContentHighLight(HighLight):
+    #parents = [Optional('root.bq.p')]
 
 @content_tag_set.register()
 class IndentgenContenBqA8n(Annotation):
-    parents = [Optional('root.bq.p')]
+    parents = [Optional('root.bq.p'), Optional('root.ul.li')]
 
 @content_tag_set.register()
 class IndentgenContenBqFootnote(FootNote):
-    parents = [Optional('root.bq.p.a8n')]
+    parents = [Optional('root.bq.p.a8n'), Optional('root.ul.li.a8n')]
 
 @content_tag_set.register()
 class IndentgenContentBr(Break):
-    parents = [Optional('root.bq.p')]
+    parents = [Optional('root.conv.msg.p')]
 
 
 @content_tag_set.register(replace=True)
 class IndentgenContentBlockQuote(BlockQuote):
+
+    #parents = [Optional('root'), Optional('root.p.a8n.fn')]
 
     def before_render(self):
         # promote orphaned text nodes to 'p'
@@ -630,7 +667,7 @@ class IndentgenContentPullQuote(TagDef):
     add_to_collector = True
 
     min_num_text_nodes = 1
-    max_num_text_nodes = 1
+    max_num_text_nodes = None
 
     parents = [Optional('root.p')]
 
@@ -740,7 +777,98 @@ class IndentgenContentBookMarkDiigo(TagDef):
     parents = [OptionalUnique('root.bm')]
 
 
-#@content_tag_set.register()
-#class IndentgenContentMsg(TagDef):
-    #tag_name = 'msg'
+
+
+@content_tag_set.register()
+class IndentgenContentConversation(TagDef):
+    tag_name = 'conv'
+
+    #min_num_text_nodes = 0
+    #max_num_text_nodes = 0
+
+    parents = [Optional('root')]
+
+
+@content_tag_set.register()
+class IndentgenContentConversationDefault(TagDef):
+    tag_name = 'default_from'
+    is_context = True
+
+    min_num_text_nodes = 1
+    max_num_text_nodes = 1
+
+    parents = [OptionalUnique('root.conv')]
+
+
+
+@content_tag_set.register()
+class IndentgenContentMsg(TagDef):
+    tag_name = 'msg'
+
+    parents = [Optional('root.conv')]
+
+    def before_render(self):
+        # promote orphaned text nodes to 'li'
+        for i,child in enumerate(self.children):
+            if not child.is_element:
+                promoted_elem = child.promote(Paragraph)
+                self.children[i] = promoted_elem
+
+
+    def render_main(self):
+        #print(self.context)
+        #input('HOLD')
+        msg_str = ''
+
+        #msgs = self.context.get('msg', [])
+
+        #actors = sorted(list(set([msg['from'] for msg in msgs if msg.get('from')]))
+        actor_id_map = self.parent.context.setdefault('msg_actors', {})
+
+        #prev_actor_id = self.parent.context.setdefault('prev_actor_id', None)
+        prev_actor_id = self.parent.context.get('prev_actor_id')
+
+        default_actor_name = self.parent.context.get('default_from') or 'Me' # default name for messages I sent (ones without a 'from' context)
+
+        #for msg in msgs:
+        frm = self.context.get('from')
+        content = self.content
+
+        side = 'left' if frm else 'right'
+        cls_color = ''
+
+        put_name = ''
+
+        actor_id = -1 # denotes 'Me'
+
+        if frm:
+            actor_id = actor_id_map.setdefault(frm, len(actor_id_map))
+            cls_color = f' msg__color__{actor_id}'
+
+        if actor_id != prev_actor_id:
+            use_name = frm or default_actor_name
+            put_name = f'<span>{use_name}</span>'
+            self.parent.context['prev_actor_id'] = actor_id
+
+        return f'<div class="conversation__msg msg__{side}{cls_color}">{put_name}{content}</div>'
+
+
+
+
+
+
+
+
+
+@content_tag_set.register()
+class IndentgenContentMsgFrom(TagDef):
+    tag_name = 'from'
+    is_context = True
+
+    min_num_text_nodes = 1
+    max_num_text_nodes = 1
+
+    parents = [OptionalUnique('root.conv.msg')]
+
+
 

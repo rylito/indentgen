@@ -25,7 +25,6 @@ class Wisdom:
         self.config_file_path = config_file_path
         self.static_url = static_url
 
-        self.pk_lookup = {} # this doesn't need to be cached in wisdom pickle, will just be re-built in memory each time when pages are iterated through
 
 
         #self.content_dentmark = Dentmark(defs_module.REGISTERED_TAGS)
@@ -70,20 +69,6 @@ class Wisdom:
 
     def get_rendered(self, key_srp, is_taxonomy = False):
 
-        # TODO this is alla bit hacky. Really, I should probabyl just pass the Indentgen instance to Wisdom, so that it
-        # can be made available as extra_context when rendering rather than having to set up these template tag helper functions
-        # here and then duplicate or relay functions around for helper features like looking images and urls
-        def save_to_pk_lookup(root):
-            if is_taxonomy:
-                return
-
-            meta = root.context['meta']
-            pk = meta.get('pk')
-            if pk:
-                slug = meta['slug']
-                url = f'/{pk}-{slug}/'
-                self.pk_lookup[pk] = url
-
 
         #abs_content_path = (self.taxonomy_path if is_taxonomy else self.content_path) / key_srp
         abs_content_path = self.site_path / key_srp
@@ -101,7 +86,6 @@ class Wisdom:
                     try:
                         with open(abs_cached_path, 'r') as f:
                             root = render_meta['root']
-                            save_to_pk_lookup(root)
                             return f.read(), root
                     except FileNotFoundError:
                         print('CACHED render result doesnt exist - re-render')
@@ -111,19 +95,19 @@ class Wisdom:
 
         #dentmark = self.taxonomy_dentmark if is_taxonomy else self.content_dentmark
 
-        with open(abs_content_path, 'r') as f:
-            #rendered = self.dentmark.render(f)
-            try:
-                root = dentmark.parse(f, TAXONOMY_TAG_SET if is_taxonomy else CONTENT_TAG_SET)
-            except Exception as e:
-                raise Exception(f'{abs_content_path}: {e}')
-
         extra_context = {
             'srp': key_srp,
             'wisdom': self
         } #TODO will we need to use this?
 
-        root.pre_render(extra_context)
+        with open(abs_content_path, 'r') as f:
+            #rendered = self.dentmark.render(f)
+            try:
+                root = dentmark.parse(f, TAXONOMY_TAG_SET if is_taxonomy else CONTENT_TAG_SET, extra_context)
+            except Exception as e:
+                raise Exception(f'{abs_content_path}: {e}')
+
+        root.pre_render()
 
         try:
             rendered = root.render()
@@ -144,7 +128,6 @@ class Wisdom:
 
         render_cache = self.data.setdefault('render_cache', {})
         render_cache[key_srp] = {'mts': mts, 'root': root}
-        save_to_pk_lookup(root)
 
         self.save()
 
@@ -287,6 +270,7 @@ class Wisdom:
                 print('original', original_path)
                 print('cached', cached_path)
                 print('cached_exists', cached_path.exists())
+                #input('HOLD wisdom')
 
                 #resized_exists = img_data['cached_path'].exists()
 
@@ -298,7 +282,11 @@ class Wisdom:
 
                 if mts != img_data['mts'] or not cached_path.exists():
                     print('THE THUMB NEEDS TO BE MADE FOR', cached_path)
+                    print(mts, img_data['mts'], cached_path.exists())
+                    print('after:',img_data['mts'])
                     resize(original_path, cached_path, img_data['max_width'], img_data['max_height'])
+                    img_data['mts'] = mts
+                    self.save()
                 else:
                     print('we golden')
                     #input('HOLD')
@@ -306,5 +294,7 @@ class Wisdom:
             yield img_data
 
 
-    def get_url_for_pk(self, pk): # used in TagDefs to dynamically resolve URLS to page urls
-        return self.pk_lookup[pk]
+    #def get_url_for_pk(self, pk): # used in TagDefs to dynamically resolve URLS to page urls
+        #print('URL_FOR_PK_DICT', self.pk_lookup)
+        #input('HOLD')
+        #return self.pk_lookup[pk]

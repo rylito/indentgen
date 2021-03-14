@@ -11,7 +11,7 @@ def gen_exp_range(slots, span, reverse=False):
 
 
 def get_links(num_pages, on_page, slots): # on_page 1 indexed
-
+    print('call')
     if num_pages <= slots:
         for x in range(num_pages):
             yield x + 1
@@ -28,14 +28,24 @@ def get_links(num_pages, on_page, slots): # on_page 1 indexed
 
     # make the allocations whole, favor giving whole one to 'smaller' side
 
+    print('pal', alloc_slots_left)
+    print('par', alloc_slots_right)
+
     if alloc_slots_left + alloc_slots_right < available_slots:
-        if alloc_slots_left < alloc_slots_right:
+        if on_page == 1:
+            alloc_slots_right += 1
+        elif on_page == num_pages:
+            alloc_slots_left += 1
+        elif alloc_slots_left < alloc_slots_right:
             alloc_slots_left += 1
         else:
-            alloc_slots_right +=1
+            alloc_slots_right += 1
 
     # alloc_slots_left -> 3
     # alloc_slots_right -> 6
+
+    print('alloc_slocs_left', alloc_slots_left, num_pages_left)
+    print('alloc_slocs_right', alloc_slots_right, num_pages_right)
 
     if alloc_slots_left == 1:
         yield on_page - 1
@@ -142,6 +152,8 @@ class Paginator:
 
 
     def get_page_endpoint(self, page_num): # 1-indexed
+        print(self._endpoint_objs)
+        print('TRYING TO CALL THIS PAGE_NUM:', page_num)
         return self._endpoint_objs[page_num - 1]
 
 

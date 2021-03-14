@@ -726,6 +726,7 @@ class Indentgen:
 
             #rendered = f'bogus_render for {endpoint.url}'
 
+            print('rendering', endpoint.url_components, endpoint.url, endpoint.identifier, endpoint.get_output_path())
             rendered = endpoint.render(self)
             if rendered is None:
                 continue
