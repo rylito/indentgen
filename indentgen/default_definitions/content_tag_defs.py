@@ -65,14 +65,15 @@ class IndentgenContentRoot(TagDef):
 
         # decorate last 'p' with endmark
         # use gen_tags_by_name to find nested p tags (last p tag might be in summary for short posts)
-        p_tags = list(self.gen_tags_by_name('p'))
-        if p_tags:
-            last_child = self.children[-1]
+        if self.context['meta'].get('pk') is not None: # Don't do this for info pages that don't have a pk
+            p_tags = list(self.gen_tags_by_name('p'))
+            if p_tags:
+                last_child = self.children[-1]
 
-            # this check ensures that the endmark isn't added if the last child is an img or some other content that
-            # would cause the endmark to appear prior to it. Just omit the endmark for posts like this
-            if last_child.is_element and (last_child.tag_name == 'p' or last_child.tag_name == 'sum'):
-                p_tags[-1].add_class('p__endmark')
+                # this check ensures that the endmark isn't added if the last child is an img or some other content that
+                # would cause the endmark to appear prior to it. Just omit the endmark for posts like this
+                if last_child.is_element and (last_child.tag_name == 'p' or last_child.tag_name == 'sum'):
+                    p_tags[-1].add_class('p__endmark')
 
 
         #if self.children:
@@ -89,22 +90,30 @@ class IndentgenContentRoot(TagDef):
         # use gen_tags_by_name to find nested p tags (first p tag might be in summary)
         if 'articles' in taxonomy:
 
-            first_found = False
+            #first_found = False
             #prev_elem = None
 
+            # dropcap to first p in article, even if it is nested in a sum tag
             for child in self.gen_tags_by_name('p'):
-                if child.is_element and child.tag_name == 'p':
-                    #if not first_found or (prev_elem and prev_elem.tag_name == 'h2'):
-                    prev_elem = child.prev_sibling()
-                    prev_elem_tag = (prev_elem and prev_elem.is_element and prev_elem.tag_name) or None
-                    if not first_found or prev_elem_tag == 'h2':
-                        child.context['use_dropcap'] = ''
-                        first_found = True
-                        #input('WE HIT')
+                child.context['use_dropcap'] = ''
+                break
 
-                    if prev_elem_tag == 'h3':
-                        child.context['use_leadin'] = ''
-                prev_elem = child
+            # add dropcaps to the first p following an h2
+            for child in self.gen_tags_by_name('h2'):
+                #input('H2 HOLD')
+                #for child in self.next_tag_of_type('h2'):
+                next_p = child.next_tag_of_type('p')
+                if next_p:
+                    next_p.context['use_dropcap'] = ''
+                    #input('P HOLD')
+
+            # add leadin styling to the first p following an h3
+            for child in self.gen_tags_by_name('h3'):
+                #for child in self.next_tag_of_type('h2'):
+                next_p = child.next_tag_of_type('p')
+                if next_p:
+                    next_p.context['use_leadin'] = ''
+
 
     #def render_main(self):
         #return super().render_main()
@@ -120,7 +129,7 @@ class IndentgenContentRoot(TagDef):
         if 'bm' in self.collectors:
             body = self.collectors['bm'][0] + body
 
-        if 'articles' in taxonomy:
+        if 'articles' in taxonomy or self.context['meta']['slug'] == 'about':
             indentgen = self.extra_context['indentgen']
 
             if 'creative-writing' in taxonomy:
@@ -557,7 +566,7 @@ class IndentgenContentImageMetaTitle(ImgTitleContext):
 
 @content_tag_set.register(replace=True)
 class IndentgenContentImageAnchor(Anchor):
-    parents = [Optional('root'), Optional('root.p'), Optional('root.p.a8n.fn'), Optional('root.bq.a8n.fn'), Optional('root.img.attr'), Optional('root.meta.img.attr'), Optional('root.p.sum'), Optional('root.p.sum.i'), Optional('root.sum.p'), Optional('root.ul.li'), Optional('root.p.a8n.fn.i'), Optional('root.p.i'), Optional('root.img.caption'), Optional('root.conv.msg.p'), Optional('root.bq.p.a8n.fn'), Optional('root.ul.li.a8n.fn.i')]
+    parents = [Optional('root'), Optional('root.p'), Optional('root.p.a8n.fn'), Optional('root.bq.a8n.fn'), Optional('root.img.attr'), Optional('root.meta.img.attr'), Optional('root.p.sum'), Optional('root.p.sum.i'), Optional('root.sum.p'), Optional('root.ul.li'), Optional('root.p.a8n.fn.i'), Optional('root.p.i'), Optional('root.img.caption'), Optional('root.conv.msg.p'), Optional('root.bq.p.a8n.fn'), Optional('root.ul.li.a8n.fn.i'), Optional('root.aside'), Optional('root.extract')]
 
 
 
@@ -567,8 +576,12 @@ class IndentgenContentImageAnchor(Anchor):
             if self.content.startswith('http'):
                 url = self.content
             else:
-                # don't add the tag. This supports the #TODO or 'deferred' links
-                return self.content
+                content_split = self.content.split('@')
+                if len(content_split) == 2 and '.' in content_split[1]:
+                    url = f'mailto:{self.content}'
+                else:
+                    # don't add the tag. This supports the #TODO or 'deferred' links
+                    return self.content
         #elif url.isdigit():
             #wisdom = self.extra_context['wisdom']
             #try:
@@ -587,7 +600,7 @@ class IndentgenContentImageAnchor(Anchor):
 
 @content_tag_set.register(replace=True)
 class IndentgenContentImageAnchorURL(URLContext):
-    parents = [OptionalUnique('root.a'), OptionalUnique('root.p.a'), Optional('root.p.a8n.fn.a'), Optional('root.bq.a8n.fn.a'), OptionalUnique('root.img.attr.a'), OptionalUnique('root.meta.img.attr.a'), OptionalUnique('root.p.sum.i.a'), OptionalUnique('root.p.a8n.fn.i.a'), OptionalUnique('root.p.i.a'), OptionalUnique('root.p.sum.a'), Optional('root.conv.msg.p.a'), Optional('root.bq.p.a8n.fn.a'), Optional('root.ul.li.a8n.fn.i.a')]
+    parents = [OptionalUnique('root.a'), OptionalUnique('root.p.a'), Optional('root.p.a8n.fn.a'), Optional('root.bq.a8n.fn.a'), OptionalUnique('root.img.attr.a'), OptionalUnique('root.meta.img.attr.a'), OptionalUnique('root.p.sum.i.a'), OptionalUnique('root.p.a8n.fn.i.a'), OptionalUnique('root.p.i.a'), OptionalUnique('root.p.sum.a'), OptionalUnique('root.conv.msg.p.a'), OptionalUnique('root.bq.p.a8n.fn.a'), OptionalUnique('root.ul.li.a8n.fn.i.a'), OptionalUnique('root.aside.a'), OptionalUnique('root.ma'), OptionalUnique('root.extract.a')]
 
 
     def process_data(self, data):
@@ -853,14 +866,6 @@ class IndentgenContentMsg(TagDef):
 
         return f'<div class="conversation__msg msg__{side}{cls_color}">{put_name}{content}</div>'
 
-
-
-
-
-
-
-
-
 @content_tag_set.register()
 class IndentgenContentMsgFrom(TagDef):
     tag_name = 'from'
@@ -872,4 +877,49 @@ class IndentgenContentMsgFrom(TagDef):
     parents = [OptionalUnique('root.conv.msg')]
 
 
+@content_tag_set.register()
+class IndentgenContentAside(TagDef):
+    tag_name = 'aside'
 
+    parents = [Optional('root')]
+
+    def render_main(self):
+        return f'<div class="aside">{self.content}</div>'
+
+
+@content_tag_set.register()
+class IndentgenContentMessageArchiveLink(TagDef):
+    tag_name = 'ma'
+
+    min_num_text_nodes = 1
+    max_num_text_nodes = 1
+
+    parents = [Optional('root')]
+
+    def render_main(self):
+        url = self.context.get('url')
+
+        if url:
+            return f'<a href="{url}" class="message-archive-link">{self.content}</a>'
+            #render = Inline('a', {'href': url, 'class': 'message-archive-link'}, self.content)
+        #else:
+            #render = InlineFragment('deferredlink', self.content)
+
+        return ''
+
+@content_tag_set.register()
+class IndentgenContentMessageExtract(TagDef):
+    tag_name = 'extract'
+
+    parents = [Optional('root')]
+
+    def render_main(self):
+        link = self.context.get('link')
+        return f'<blockquote>{self.content}<sup><a href="{link}" class="extract-ref">↩︎</a></sup></blockquote>'
+
+
+@content_tag_set.register()
+class IndentgenContentMessageExtractLink(IndentgenContentImageAnchorURL):
+    tag_name = 'link'
+
+    parents = [RequiredUnique('root.extract')]

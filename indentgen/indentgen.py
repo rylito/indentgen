@@ -105,6 +105,7 @@ class Indentgen:
 
         #self.pk_lookup = {}
         self.pk_link_map = {}
+        self.subsite_srp_dirs = set()
 
         self._patch_def_sets()
 
@@ -112,6 +113,8 @@ class Indentgen:
         self._check_taxonomy_tags_meta(is_taxonomy=True)
 
         #self._build_taxonomy_tags()
+
+        self._find_subsite_srps()
 
         # do a pass of the content parsing only the meta to build the PK map so that
         # all pks are known prior to rendering the full page content
@@ -150,14 +153,33 @@ class Indentgen:
     #def get_rendered(self):
         #aoeu
 
+    def _is_path_subsite(self, srp):
+        for subsite_srp_dir in self.subsite_srp_dirs:
+            try:
+                srp.relative_to(subsite_srp_dir)
+                return True
+            except ValueError:
+                pass
+            return False
+
+
     def _gen_walk_content(self, is_taxonomy=False, meta_only=False):
         #content_path = self.site_path.joinpath(self.CONTENT_DIR)
         use_path = self.taxonomy_path if is_taxonomy else self.content_path
         print('Globbing:', use_path)
         for f in use_path.glob('**/*.dentmark'):
             print(f)
+            #input('HOLD')
             srp = f.relative_to(self.site_path)
             print('srp:', srp)
+            print(srp.stem)
+            #input('HOLD')
+            #if self.subsite_srp_dirs.add(srp.parent)
+            print(self.subsite_srp_dirs)
+
+            # skip over subsites
+            if self._is_path_subsite(srp):
+                continue
 
             rendered, meta = self.wisdom.get_rendered(srp, is_taxonomy, meta_only)
             yield srp, rendered, meta
@@ -317,10 +339,25 @@ class Indentgen:
         return f'{pk}-{slug}' if pk is not None else slug
 
 
+    # locate other config files in content dir so that we can handle subsites correctly
+    def _find_subsite_srps(self):
+        use_path = self.content_path
+        print('Globbing:', use_path)
+        for f in use_path.glob(f'**/{self.CONFIG_FILE_NAME}'):
+            print(f)
+            srp = f.relative_to(self.site_path)
+            #input('HOLD config')
+            self.subsite_srp_dirs.add(srp.parent)
+
+
     # first pass is to resolve all of the pks in the meta, so that they are available
     # when rendering the full body. This is needed to reslove link url's that are PKs in the dentmark
     def _pre_populate_meta_pk(self):
         for srp, rendered, root in self._gen_walk_content(is_taxonomy=False, meta_only=True):
+            #if srp.name == self.CONFIG_FILE_NAME:
+                #self.subsite_srp_dirs.append(srp.parent)
+
+
             pk = root.context['meta'].get('pk')
             if pk:
                 self.pk_link_map[pk] = self._get_page_url(root)
