@@ -1,4 +1,4 @@
-from indentgen.default_definitions.config_tag_defs import CONFIG_TAG_SET
+from indentgen.default_definitions.config_tag_defs import CONFIG_TAG_SET, SUBSITE_CONFIG_TAG_SET
 from indentgen.default_definitions.content_tag_defs import CONTENT_TAG_SET
 from indentgen.default_definitions.taxonomy_tag_defs import TAXONOMY_TAG_SET
 

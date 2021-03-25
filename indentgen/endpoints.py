@@ -15,10 +15,12 @@ class Endpoint:
     is_redirect = False
     #is_static = False
 
-    def __init__(self, indentgen_obj, url_components, page=None):
+    def __init__(self, indentgen_obj, url_components, page=None, subsite_config=None):
         self.url_components = url_components
         self.page = page
         self.indentgen = indentgen_obj
+        #self.template_path_prefix = template_path_prefix.strip('/') # strip any leading or trailing '/'
+        self.subsite_config = subsite_config
 
     def get_output_path(self):
         #if not self.url_components:
@@ -68,9 +70,16 @@ class Endpoint:
             #'page_store': indentgen_obj.page_store,
             #'url': self.url
             'page': self,
+            'config': self.subsite_config or self.indentgen.config
         }
 
-        template = indentgen_obj.templates.get_template(self.use_template)
+        use_template = self.use_template
+        if self.subsite_config:
+            template_path_prefix = self.subsite_config.get('template_path_prefix', '').strip('/') # strip any leading or trailing '/'
+            if template_path_prefix:
+                use_template = f'{template_path_prefix}/{self.use_template}'
+
+        template = indentgen_obj.templates.get_template(use_template)
         return template.render(**context)
 
     #def generate(self, template_mgr, site_config, static_func, taxonomy, wisdom):
@@ -110,8 +119,8 @@ class ContentEndpoint(Endpoint):
     #has_content = True
     #is_home = False
 
-    def __init__(self, indentgen_obj, url_components, page, srp):
-        super().__init__(indentgen_obj, url_components, page)
+    def __init__(self, indentgen_obj, url_components, page, srp, subsite_config=None):
+        super().__init__(indentgen_obj, url_components, page, subsite_config)
         #self.url_components = url_components
         #self.indentgen = indentgen_obj
         self.srp = srp
@@ -138,8 +147,12 @@ class ContentEndpoint(Endpoint):
         #return self.root.collectors
 
     @property
+    def context(self):
+        return self.root.context
+
+    @property
     def meta(self):
-        return self.root.context['meta']
+        return self.context['meta']
 
     @property
     def summary(self):
@@ -158,11 +171,11 @@ class ContentEndpoint(Endpoint):
 
     @property
     def title(self):
-        return self.meta['title']
+        return self.meta.get('title', '')
 
     @property
     def description(self):
-        description_strs = self.meta['description']
+        description_strs = self.meta.get('description', [])
         return ' '.join(description_strs)
 
     @property

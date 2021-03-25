@@ -1,13 +1,18 @@
 import re
 #import datetime
 
-from dentmark import defs_manager, TagDef, OptionalUnique
+from dentmark import defs_manager, TagDef, OptionalUnique, RequiredUnique
 #from dentmark.default_definitions.anchor import TitleContext
 #from indentgen.default_definitions import ConfigURLContext
 
 CONFIG_TAG_SET = 'indentgen_config'
+SUBSITE_CONFIG_TAG_SET = 'indentgen_subsite_config'
 
 config_tag_set = defs_manager.get_tag_set(CONFIG_TAG_SET)
+
+
+
+
 
 
 class ConfigURLContext(TagDef):
@@ -85,4 +90,42 @@ class ConfigPerPage(ConfigSingleParam):
 
 
 
+# copy from CONFIG_TAG_SET and add a few more required tags
+subsite_config_tag_set = defs_manager.copy_tag_set(SUBSITE_CONFIG_TAG_SET, CONFIG_TAG_SET)
+
+@subsite_config_tag_set.register()
+class SubsiteConfigParentSlug(TagDef):
+    tag_name = 'parent_slug'
+    is_context = True
+
+    min_num_text_nodes = 1
+    max_num_text_nodes = 1
+
+    parents = [RequiredUnique('root')]
+
+
+@subsite_config_tag_set.register()
+class SubsiteConfigSubsiteSlug(TagDef):
+    tag_name = 'subsite_slug'
+    is_context = True
+
+    min_num_text_nodes = 1
+    max_num_text_nodes = 1
+
+    parents = [RequiredUnique('root')]
+
+@subsite_config_tag_set.register()
+class SubsiteConfigTemplatePathPrefix(TagDef):
+    tag_name = 'template_path_prefix'
+    is_context = True
+
+    min_num_text_nodes = 1
+    max_num_text_nodes = 1
+
+    parents = [OptionalUnique('root')]
+
+
 print('default indentgen config definitions loaded')
+
+
+

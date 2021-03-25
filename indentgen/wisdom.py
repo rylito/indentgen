@@ -2,7 +2,7 @@ from uuid import uuid4
 import pickle
 #from dentmark import render
 
-from indentgen.default_definitions import CONFIG_TAG_SET, TAXONOMY_TAG_SET, CONTENT_TAG_SET
+from indentgen.default_definitions import CONFIG_TAG_SET, SUBSITE_CONFIG_TAG_SET, TAXONOMY_TAG_SET, CONTENT_TAG_SET
 import dentmark
 from indentgen.img_resize_utils import resize
 
@@ -183,6 +183,31 @@ class Wisdom:
 
         return config_data
 
+    def get_subsite_config(self, subsite_config_dir_srp):
+        config_file_path = self.site_path / subsite_config_dir_srp / self.indentgen.CONFIG_FILE_NAME
+        mts = config_file_path.stat().st_mtime
+
+        subsite_cache = self.data.get('subsite_cache')
+        if subsite_cache:
+            subsite_data = subsite_cache.get(subsite_config_dir_srp)
+            if subsite_data:
+                config_mts = subsite_data['mts']
+                if config_mts == mts:
+                    return subsite_data['data']
+
+        print('Subsite config doesnt exist in cache - PARSING')
+
+        with open(config_file_path, 'r') as f:
+            try:
+                config_data = dentmark.render(f, SUBSITE_CONFIG_TAG_SET)
+            except Exception as e:
+                raise Exception(f'{config_file_path}: {e}')
+
+        print('SAVING SUBSITE CONFIG IN WISDOM')
+        self.data.setdefault('subsite_cache', {})[subsite_config_dir_srp] = {'mts': mts, 'data': config_data}
+        self.save()
+        return config_data
+
 
     def _get_or_create_image_version(self, relative_path, max_width, max_height, copy_original, dentmark_srp):
 
@@ -265,7 +290,7 @@ class Wisdom:
             resolved = full_path.resolve(True) # make sure the image exists
             relative = resolved.relative_to(self.site_path) # make sure relative path doesn't ascend past the site_path
         except (ValueError, FileNotFoundError) as e:
-            raise Exception(f"{self.site_path / dentmark_srp}: Invalid image url '{image_relative_path}'")
+            raise Exception(f"Invalid image url '{image_relative_path}'")
 
         print('resolved', resolved)
         print('relative', relative)

@@ -212,6 +212,7 @@ class IndentgenContentParagraph(Paragraph):
                     print(rejoin)
                     #input('HALTEN')
 
+
 @content_tag_set.register()
 class MetaTaxonomyContext(TagDef):
     tag_name = 'taxonomy'
@@ -256,7 +257,7 @@ class TitleMetaContext(TagDef):
     min_num_text_nodes = 1
     max_num_text_nodes = 1
 
-    parents = [RequiredUnique('root.meta')]
+    parents = [OptionalUnique('root.meta')]
 
 
 @content_tag_set.register()
@@ -304,10 +305,15 @@ class MetaDateContext(TagDef):
 
     parents = [OptionalUnique('root.meta')]
 
-    date_format = '%Y-%m-%d'
+    date_format = '%Y-%m-%d-%H%M'
 
     def process_data(self, data):
-        return datetime.datetime.strptime(data[0], self.date_format).date()
+        time = data[0].strip()
+        if len(time) == 10:
+            # add default time
+            time += '-0000'
+
+        return datetime.datetime.strptime(time, self.date_format)
 
     def validate(self):
         try:
@@ -315,7 +321,6 @@ class MetaDateContext(TagDef):
             self.get_data()
         except ValueError:
             return f"Invalid date value for Tag '{self.tag_name}' in meta"
-
 
 
 @content_tag_set.register()
@@ -367,7 +372,7 @@ class ContentMetaDescription(TagDef):
 
     #add_to_collector = True
 
-    parents = [RequiredUnique('root.meta')]
+    parents = [OptionalUnique('root.meta')]
 
     #def render_main(self):
         #self.parent.context[f'{self.tag_name}_content'] = self.content
@@ -566,7 +571,7 @@ class IndentgenContentImageMetaTitle(ImgTitleContext):
 
 @content_tag_set.register(replace=True)
 class IndentgenContentImageAnchor(Anchor):
-    parents = [Optional('root'), Optional('root.p'), Optional('root.p.a8n.fn'), Optional('root.bq.a8n.fn'), Optional('root.img.attr'), Optional('root.meta.img.attr'), Optional('root.p.sum'), Optional('root.p.sum.i'), Optional('root.sum.p'), Optional('root.ul.li'), Optional('root.p.a8n.fn.i'), Optional('root.p.i'), Optional('root.img.caption'), Optional('root.conv.msg.p'), Optional('root.bq.p.a8n.fn'), Optional('root.ul.li.a8n.fn.i'), Optional('root.aside'), Optional('root.extract')]
+    parents = [Optional('root'), Optional('root.p'), Optional('root.p.a8n.fn'), Optional('root.bq.a8n.fn'), Optional('root.img.attr'), Optional('root.meta.img.attr'), Optional('root.p.sum'), Optional('root.p.sum.i'), Optional('root.sum.p'), Optional('root.ul.li'), Optional('root.p.a8n.fn.i'), Optional('root.p.i'), Optional('root.img.caption'), Optional('root.conv.msg.p'), Optional('root.bq.p.a8n.fn'), Optional('root.ul.li.a8n.fn.i'), Optional('root.aside'), Optional('root.extract'), Optional('root.p.hl')]
 
 
 
@@ -600,7 +605,7 @@ class IndentgenContentImageAnchor(Anchor):
 
 @content_tag_set.register(replace=True)
 class IndentgenContentImageAnchorURL(URLContext):
-    parents = [OptionalUnique('root.a'), OptionalUnique('root.p.a'), Optional('root.p.a8n.fn.a'), Optional('root.bq.a8n.fn.a'), OptionalUnique('root.img.attr.a'), OptionalUnique('root.meta.img.attr.a'), OptionalUnique('root.p.sum.i.a'), OptionalUnique('root.p.a8n.fn.i.a'), OptionalUnique('root.p.i.a'), OptionalUnique('root.p.sum.a'), OptionalUnique('root.conv.msg.p.a'), OptionalUnique('root.bq.p.a8n.fn.a'), OptionalUnique('root.ul.li.a8n.fn.i.a'), OptionalUnique('root.aside.a'), OptionalUnique('root.ma'), OptionalUnique('root.extract.a')]
+    parents = [OptionalUnique('root.a'), OptionalUnique('root.p.a'), Optional('root.p.a8n.fn.a'), Optional('root.bq.a8n.fn.a'), OptionalUnique('root.img.attr.a'), OptionalUnique('root.meta.img.attr.a'), OptionalUnique('root.p.sum.i.a'), OptionalUnique('root.p.a8n.fn.i.a'), OptionalUnique('root.p.i.a'), OptionalUnique('root.p.sum.a'), OptionalUnique('root.conv.msg.p.a'), OptionalUnique('root.bq.p.a8n.fn.a'), OptionalUnique('root.ul.li.a8n.fn.i.a'), OptionalUnique('root.aside.a'), OptionalUnique('root.ma'), OptionalUnique('root.extract.a'), OptionalUnique('root.p.hl.a')]
 
 
     def process_data(self, data):
@@ -608,19 +613,21 @@ class IndentgenContentImageAnchorURL(URLContext):
             print(self.extra_context)
             #input('HOLD HERE')
             indentgen = self.extra_context['indentgen']
-            url = indentgen.pk_link_map[int(data[0])]
+            #slug = indentgen.pk_link_map[int(data[0])]['slug']
+            return indentgen.get_url_for_pk(data[0])
+            #url = indentgen.resolve_url_components(slug)
             #try:
-            return f'/{url}/' # indentgen.pk_link_map has raw component without slashes... add them here to make it an absolute link
+            #return f'/{url}/' # indentgen.pk_link_map has raw component without slashes... add them here to make it an absolute link
             #except KeyError as e:
                 #raise Exception(f'Page with PK of {url} does not exist: line {self.line_no}')
         return data[0]
 
     def validate(self):
         raw_val = self.children[0].text
-        #try:
-        self.get_data()
-        #except KeyError as e:
-            #return f'Page with PK of {raw_val} does not exist'
+        try:
+            self.get_data()
+        except KeyError as e:
+            return f'Page with PK of {raw_val} does not exist'
 
 
 

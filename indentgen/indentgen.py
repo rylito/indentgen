@@ -12,6 +12,7 @@ from pathlib import Path
 #from indentgen.default_definitions import *
 
 from indentgen.wisdom import Wisdom
+from indentgen.path_dict import PathDict
 
 #from dentmark import render
 
@@ -105,7 +106,8 @@ class Indentgen:
 
         #self.pk_lookup = {}
         self.pk_link_map = {}
-        self.subsite_srp_dirs = set()
+        self.slug_map = {}
+        self.subsite_data = PathDict()
 
         self._patch_def_sets()
 
@@ -120,7 +122,10 @@ class Indentgen:
         # all pks are known prior to rendering the full page content
         self._pre_populate_meta_pk()
 
+        self._validate_subsite_slugs()
+
         self._build_page_store()
+
         self._check_taxonomy_tags_meta(is_taxonomy=False)
 
         #self._build_taxonomy_page_store()
@@ -130,6 +135,8 @@ class Indentgen:
         self._generate_taxonomy_pagination_routes()
         self._generate_date_archive_routes()
         self._generate_home_pagination_routes()
+
+        #self._build_subsites() #TODO comment back in or refactor
 
         self._build_static_file_remapping()
         self._build_resized_img_endpoints()
@@ -153,14 +160,9 @@ class Indentgen:
     #def get_rendered(self):
         #aoeu
 
-    def _is_path_subsite(self, srp):
-        for subsite_srp_dir in self.subsite_srp_dirs:
-            try:
-                srp.relative_to(subsite_srp_dir)
-                return True
-            except ValueError:
-                pass
-            return False
+
+    #def _resolve_subsite_url(self):
+        #pass
 
 
     def _gen_walk_content(self, is_taxonomy=False, meta_only=False):
@@ -175,14 +177,17 @@ class Indentgen:
             print(srp.stem)
             #input('HOLD')
             #if self.subsite_srp_dirs.add(srp.parent)
-            print(self.subsite_srp_dirs)
+            #print(self.subsite_srp_dirs)
 
-            # skip over subsites
-            if self._is_path_subsite(srp):
+            # skip over subsite config
+            if srp.name == self.CONFIG_FILE_NAME:
                 continue
 
-            rendered, meta = self.wisdom.get_rendered(srp, is_taxonomy, meta_only)
-            yield srp, rendered, meta
+            #if self._is_path_subsite(srp):
+                #continue
+
+            rendered, root = self.wisdom.get_rendered(srp, is_taxonomy, meta_only)
+            yield srp, rendered, root
 
 
     def _add_route(self, endpoint):
@@ -331,12 +336,29 @@ class Indentgen:
                 #input('HOLD')
 
 
-    def _get_page_url(self, root):
-        #TODO make this configurable in setting whether to use pk shortcuts or not
-        meta = root.context['meta']
-        pk = meta.get('pk')
-        slug = meta['slug']
-        return f'{pk}-{slug}' if pk is not None else slug
+    #def _get_subsite_config(self, srp): #TODO delme?
+        #print('AAAAAAAAA',self.subsite_srp_dirs)
+        #print('BBBBBBBBB',srp)
+        #for subsite_srp_dir, subsite_data in self.subsite_data.items():
+            #try:
+                #srp.relative_to(subsite_srp_dir)
+                #return subsite_data['config']
+            #except ValueError:
+                #pass
+        #return None
+
+
+    #def _get_page_url_data(self, srp, root):
+        #meta = root.context['meta']
+        #pk = meta.get('pk')
+        #slug = meta['slug']
+        #url = f'{pk}-{slug}' if pk is not None else slug
+
+        #subsite_config = self._get_subsite_config(srp)
+
+
+        #return subsite_config, url
+        #return f'{pk}-{slug}' if pk is not None else slug
 
 
     # locate other config files in content dir so that we can handle subsites correctly
@@ -345,9 +367,15 @@ class Indentgen:
         print('Globbing:', use_path)
         for f in use_path.glob(f'**/{self.CONFIG_FILE_NAME}'):
             print(f)
+            #input('HOLD')
             srp = f.relative_to(self.site_path)
+            subsite_dir = srp.parent
             #input('HOLD config')
-            self.subsite_srp_dirs.add(srp.parent)
+
+            subsite_config = self.wisdom.get_subsite_config(subsite_dir)
+
+            #self.subsite_data[srp.parent] = {'config': subsite_config}
+            self.subsite_data.add(subsite_dir, {'config': subsite_config, 'config_srp': srp})
 
 
     # first pass is to resolve all of the pks in the meta, so that they are available
@@ -357,12 +385,86 @@ class Indentgen:
             #if srp.name == self.CONFIG_FILE_NAME:
                 #self.subsite_srp_dirs.append(srp.parent)
 
+            slug = root.context['meta']['slug']
+
+            conflicting_slug_srp = None
+
+            # verify that slug does not conflict with a taxonomy slug
+            if slug in self.taxonomy_map:
+                conflicting_slug_srp = self.taxonomy_map[slug]['endpoint'].srp
+            # verify that slug does not conflict with another page or subsite slug
+            elif slug in self.slug_map:
+                conflicting_slug_srp = self.slug_map[slug]['srp']
+
+            if conflicting_slug_srp:
+                raise Exception(f"Slugs conflict. Both are '{slug}'. Must be unique: {srp} and {conflicting_slug_srp}")
+
+            #self.slug_map[slug] = {'srp': srp}
+            #slug_map_data = {'srp': srp}
 
             pk = root.context['meta'].get('pk')
+            #url = self._get_page_url_data(srp, root)
+
+
+            #TODO make this configurable in setting whether to use pk shortcuts or not
+            url = f'{pk}-{slug}' if pk is not None else slug
+
+            #self.slug_map[slug]['url_data'] = {'last_part': }
+
+            self.slug_map[slug] = {'slug': slug, 'srp': srp, 'last_url_part': url, 'subsite_data': self.subsite_data.get(srp)}
+
             if pk:
-                self.pk_link_map[pk] = self._get_page_url(root)
+                self.pk_link_map[pk] = slug
+                #self.slug_map[slug]['url'] = self.pk_link_map[pk]
+
+
         print(self.pk_link_map)
         #input('HOLD')
+
+
+    def _validate_subsite_slugs(self):
+        # now that we have ALL page slugs stored in self.slug_map, validate that the subsite slugs and parents make sense
+        for subsite_data in self.subsite_data:
+            config = subsite_data['config']
+            config_srp = subsite_data['config_srp']
+            slug = config['subsite_slug']
+            parent_slug = config['parent_slug']
+
+            if parent_slug not in self.slug_map:
+                raise Exception(f"parent_slug '{parent_slug}' invalid in subsite config: {config_srp}")
+
+            if slug in self.slug_map:
+                conflicting_srp = self.slug_map[slug]['srp']
+                raise Exception(f"subsite_slug '{slug}' conflicts with existing slug: {config_srp} and {conflicting_srp}")
+
+            self.slug_map[slug] = {'slug': slug, 'srp': config_srp, 'last_url_part': slug, 'subsite_data': subsite_data}
+
+
+    def _resolve_url_components(self, slug):
+        slug_data = self.slug_map[slug]
+        #is_subsite_dir = slug_data.get('')
+        components = [slug_data['last_url_part']]
+
+        seek = False
+        while slug_data.get('subsite_data'):
+            subsite_data = slug_data.get('subsite_data')
+            print('line 451', subsite_data)
+            config = subsite_data['config']
+            subsite_slug = config['subsite_slug']
+            if subsite_slug != slug:
+                components.append(subsite_slug)
+            seek = True
+            slug_data = self.slug_map[config['parent_slug']]
+            #seek = True
+
+        if seek:
+            components.append(slug_data['last_url_part'])
+
+        components.reverse()
+        print(components)
+        #if seek:
+            #input('HOLD')
+        return components
 
 
     def _build_page_store(self):
@@ -370,7 +472,7 @@ class Indentgen:
         non_pk_page_store = PageStore()
         #page_urls = {}
         for srp, rendered, root in self._gen_walk_content(is_taxonomy=False):
-            #meta = root.context['meta']
+            meta = root.context['meta']
 
             # make sure taxonomies are valid
             #taxonomy = meta.get('taxonomy', [])
@@ -387,30 +489,69 @@ class Indentgen:
             #slug = meta['slug']
             #url = self._get_page_url(root)
             #url_components = (f'{pk}-{slug}',) if pk is not None else (slug,)
-            url_components = (self._get_page_url(root),)
+            #url_components = (self._get_page_url(root),)
+            slug = meta['slug']
+            url_components = self._resolve_url_components(slug)
+
+            #subsite_data = self.subsite_data.get(srp)
+
+            subsite_data = self.subsite_data.get(srp)
+            subsite_config = None
+            if subsite_data:
+                subsite_config = subsite_data['config']
+            #template_path_prefix = ''
+            #if subsite_data:
+                #template_path_prefix = subsite_data['config'].get('template_path_prefix' ,'')
 
             #None is for 0th page, these won't have multiple pages
-            endpoint = ContentEndpoint(self, url_components, None, srp)
+            endpoint = ContentEndpoint(self, url_components, None, srp, subsite_config)
+
+
+
 
             #page_list.append(endpoint)
             #page_store.add(endpoint)
 
             self._add_route(endpoint)
 
-            pk = root.context['meta'].get('pk')
+            pk = meta.get('pk')
+
+            use_page_store = page_store
+            use_non_pk_page_store = non_pk_page_store
+
+            if subsite_data:
+                use_page_store = subsite_data.setdefault('page_store', PageStore())
+                use_non_pk_page_store = subsite_data.setdefault('non_pk_page_store', PageStore())
 
             if pk is not None:
                 redirect_endpoint = RedirectEndpoint(self, (str(pk),), endpoint)
                 self._add_route(redirect_endpoint)
-                page_store.add(endpoint)
+                use_page_store.add(endpoint)
                 #self.pk_lookup[pk] = endpoint
             else:
                 print(endpoint.url)
                 #input('HOLD')
-                non_pk_page_store.add(endpoint)
+                use_non_pk_page_store.add(endpoint)
                 #input('PAST IT')
 
         page_store.annotate_nav() # adds prev, next attrs to Endpoint objs for page nav
+
+        # do the same for all subsite page stores
+        for subsite_data in self.subsite_data:
+
+            # TODO is this a good way to handle this? Should I always combine these for both base site and subsites,
+            # and maybe just exclude pages from home listing explicitly by using a pseudo taxonomy or something rather
+            # relying on presence/absence of PK?
+            subsite_page_store = subsite_data.get('page_store', PageStore())
+            print(len(page_store))
+            # message archive doesn't have any PK pages, so just combine these for now. Not sure if this is good default behavior for every subsite though
+            subsite_page_store += subsite_data.get('non_pk_page_store', PageStore())
+
+
+
+            #subsite_page_store = subsite_data.get('page_store')
+            #if subsite_page_store:
+            subsite_page_store.annotate_nav()
 
         self.page_store = page_store
         self.non_pk_page_store = non_pk_page_store
@@ -461,6 +602,17 @@ class Indentgen:
         all_endpoints = self.page_store + self.non_pk_page_store + all_taxonomy_endpoints
         print([x.url for x in all_endpoints])
         #input('HOLD')
+
+        # add the subsite pages to all_endpoints
+        for subsite_data in self.subsite_data:
+            subsite_page_store = subsite_data.get('page_store')
+            if subsite_page_store:
+                all_endpoints += subsite_page_store
+
+            non_pk_page_store = subsite_data.get('non_pk_page_store')
+            if non_pk_page_store:
+                all_endpoints += non_pk_page_store
+
 
         # first pass to gather all of the child pages for each taxonomy
         for slug, info in self.taxonomy_map.items():
@@ -655,27 +807,33 @@ class Indentgen:
 
 
 
-    def _generate_home_pagination_routes(self):
+    def _generate_home_pagination_routes_helper(self, per_page, page_store, prefix_components, subsite_config=None):
         #self._add_route(Endpoint(self, [])) # add home page
-        per_page = self.config.get('per_page', self.DEFAULT_PER_PAGE)
+        #per_page = self.config.get('per_page', self.DEFAULT_PER_PAGE)
+        #per_page = 
 
-        endpoint_home_0 = Endpoint(self, [], 0)
+        endpoint_home_0 = Endpoint(self, prefix_components, 0, subsite_config)
         print(endpoint_home_0.url)
         #input('HOLD')
 
-        child_pages = self.page_store.recent()
+        #child_pages = self.page_store.recent()
+        child_pages = page_store.recent()
+        print(subsite_config)
+        print(len(child_pages))
+        #input('HOLD')
         pag = Paginator(child_pages, per_page)
 
         endpoint_home_0.child_pages = child_pages # attach this in addition to paginator, for completeness although home probably won't need it
 
-        base_redirect = RedirectEndpoint(self, [] + [PAGE_URL] + ['1'], endpoint_home_0) # /page/1 -> /
+        #base_redirect = RedirectEndpoint(self, [] + [PAGE_URL] + ['1'], endpoint_home_0) # /page/1 -> /
+        base_redirect = RedirectEndpoint(self, prefix_components + [PAGE_URL] + ['1'], endpoint_home_0) # /page/1 -> /
         self._add_route(base_redirect)
 
         print(base_redirect.url)
         #input('HOLD')
 
 
-        page_redirect = RedirectEndpoint(self, [] + [PAGE_URL], endpoint_home_0) # /page -> /
+        page_redirect = RedirectEndpoint(self, prefix_components + [PAGE_URL], endpoint_home_0) # /page -> /
         self._add_route(page_redirect)
 
         print(page_redirect.url)
@@ -684,6 +842,45 @@ class Indentgen:
 
         for endpoint in pag.gen_all_pages(endpoint_home_0):
             self._add_route(endpoint)
+
+
+    def _generate_home_pagination_routes(self):
+        # base site
+        per_page = self.config.get('per_page', self.DEFAULT_PER_PAGE)
+        self._generate_home_pagination_routes_helper(per_page, self.page_store, [])
+
+        # subsites
+        for subsite_data in self.subsite_data:
+            config = subsite_data['config']
+            per_page = config.get('per_page', self.DEFAULT_PER_PAGE)
+
+            # TODO is this a good way to handle this? Should I always combine these for both base site and subsites,
+            # and maybe just exclude pages from home listing explicitly by using a pseudo taxonomy or something rather
+            # relying on presence/absence of PK?
+            page_store = subsite_data.get('page_store', PageStore())
+            print(len(page_store))
+            # message archive doesn't have any PK pages, so just combine these for now. Not sure if this is good default behavior for every subsite though
+            page_store += subsite_data.get('non_pk_page_store', PageStore())
+
+            print(subsite_data)
+            print(len(page_store))
+            #input('HOLD')
+
+            prefix_components = self._resolve_url_components(config['subsite_slug'])
+            print(prefix_components)
+            #input('HOLD')
+
+            #template_path_prefix = config.get('template_path_prefix' ,'')
+
+            self._generate_home_pagination_routes_helper(per_page, page_store, prefix_components, config)
+
+             #subsite_data = self.subsite_data.get(srp)
+            #template_path_prefix = ''
+            #if subsite_data:
+                #template_path_prefix = subsite_data['config'].get('template_path_prefix' ,'')
+
+            #None is for 0th page, these won't have multiple pages
+            #endpoint = ContentEndpoint(self, url_components, None, srp, template_path_prefix)
 
 
 
@@ -768,8 +965,11 @@ class Indentgen:
         return self.wisdom.get_image_url_by_key(srp_key, max_width, max_height)[1] # just return serve path
 
 
-    #def get_url_for_pk(self, pk): # used in TagDefs to dynimacially resolve URLS to pages
-        #return self.pk_lookup[pk].url
+    def get_url_for_pk(self, pk): # used in TagDefs to dynimacially resolve URLS to pages
+        slug = self.pk_link_map[int(pk)]
+        url_components = self._resolve_url_components(slug)
+        url = '/'.join(url_components)
+        return f'/{url}/' # add leading/trailing slashes to make it an absolute link
 
 
     def generate(self):
