@@ -1,9 +1,5 @@
 import re
-#import datetime
-
 from dentmark import defs_manager, TagDef, OptionalUnique, RequiredUnique
-#from dentmark.default_definitions.anchor import TitleContext
-#from indentgen.default_definitions import ConfigURLContext
 
 CONFIG_TAG_SET = 'indentgen_config'
 SUBSITE_CONFIG_TAG_SET = 'indentgen_subsite_config'
@@ -11,13 +7,8 @@ SUBSITE_CONFIG_TAG_SET = 'indentgen_subsite_config'
 config_tag_set = defs_manager.get_tag_set(CONFIG_TAG_SET)
 
 
-
-
-
-
 class ConfigURLContext(TagDef):
     is_context = True
-    #allow_children = []
 
     min_num_text_nodes = 1
     max_num_text_nodes = 1
@@ -34,11 +25,6 @@ class ConfigURLContext(TagDef):
 @config_tag_set.register()
 class ConfigRoot(TagDef):
     tag_name = 'root'
-
-    #allow_children = ['date_archive_url', 'title', 'description', 'per_page']
-
-    #unique_children = ['date_archive_url', 'title', 'description', 'per_page']
-    #required_children = []
 
     min_num_text_nodes = 0
     max_num_text_nodes = 0
@@ -64,7 +50,6 @@ class ConfigSingleParam(TagDef):
     parents = [OptionalUnique('root')]
 
 
-
 @config_tag_set.register()
 class ConfigDescription(ConfigSingleParam):
     tag_name = 'description'
@@ -87,7 +72,6 @@ class ConfigPerPage(ConfigSingleParam):
             self.get_data()
         except ValueError:
             return f"Tag '{self.tag_name}' in config expects a positive integer"
-
 
 
 # copy from CONFIG_TAG_SET and add a few more required tags
@@ -123,9 +107,3 @@ class SubsiteConfigTemplatePathPrefix(TagDef):
     max_num_text_nodes = 1
 
     parents = [OptionalUnique('root')]
-
-
-print('default indentgen config definitions loaded')
-
-
-

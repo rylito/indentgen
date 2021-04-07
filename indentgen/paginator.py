@@ -1,7 +1,6 @@
 import math
 
 def gen_exp_range(slots, span, reverse=False):
-    print(slots, span)
     use_pow = math.log(span, slots)
 
     use_range = range(slots-1, -1, -1) if reverse else range(slots)
@@ -11,7 +10,6 @@ def gen_exp_range(slots, span, reverse=False):
 
 
 def get_links(num_pages, on_page, slots): # on_page 1 indexed
-    print('call')
     if num_pages <= slots:
         for x in range(num_pages):
             yield x + 1
@@ -28,9 +26,6 @@ def get_links(num_pages, on_page, slots): # on_page 1 indexed
 
     # make the allocations whole, favor giving whole one to 'smaller' side
 
-    print('pal', alloc_slots_left)
-    print('par', alloc_slots_right)
-
     if alloc_slots_left + alloc_slots_right < available_slots:
         if on_page == 1:
             alloc_slots_right += 1
@@ -41,11 +36,6 @@ def get_links(num_pages, on_page, slots): # on_page 1 indexed
         else:
             alloc_slots_right += 1
 
-    # alloc_slots_left -> 3
-    # alloc_slots_right -> 6
-
-    print('alloc_slocs_left', alloc_slots_left, num_pages_left)
-    print('alloc_slocs_right', alloc_slots_right, num_pages_right)
 
     if alloc_slots_left == 1:
         yield on_page - 1
@@ -55,7 +45,6 @@ def get_links(num_pages, on_page, slots): # on_page 1 indexed
             yield use_val
 
 
-    #yield f'({on_page})'
     yield on_page
 
 
@@ -65,24 +54,6 @@ def get_links(num_pages, on_page, slots): # on_page 1 indexed
         for i,val in gen_exp_range(alloc_slots_right, num_pages_right):
             use_val = num_pages if i == alloc_slots_right - 1 else val + on_page
             yield use_val
-
-'''
-for x in range(1,101):
-    print(list(get_links(100, x, 10)))
-
-
-1-29 30 31-100
-29    1    70
-
-x x x x x x x x x x
-                   
-
-avail_slots = 9
-pages per = 99 / 9
-'''
-
- #(89) 100
- #(89) 90
 
 
 class Paginator:
@@ -97,7 +68,6 @@ class Paginator:
             self.prev_endpoint = prev_endpoint
             self.next_endpoint = next_endpoint
 
-            #self.page_total = (end_index_inclusive_0 - start_index_inclusive_0) + 1
             self.num_items_on_page = len(self.items)
 
         @property
@@ -132,12 +102,10 @@ class Paginator:
         self._endpoint_objs.append(list_endpoint)
         return list_endpoint
 
+
     def gen_all_pages(self, list_endpoint_0):
         prev_endpoint = None
         annotated_endpoint = self._attach_page(list_endpoint_0, prev_endpoint)
-        #if annotated_endpoint.is_home:
-            #print(annotated_endpoint.url, annotated_endpoint.url_components)
-            #input('HOLD')
         yield annotated_endpoint
 
         while annotated_endpoint.paginator_page.next_endpoint is not None:
@@ -145,15 +113,9 @@ class Paginator:
             next_endpoint = annotated_endpoint.paginator_page.next_endpoint
             annotated_endpoint = self._attach_page(next_endpoint, prev_endpoint)
             yield annotated_endpoint
-            #if annotated_endpoint.is_home:
-                #print(annotated_endpoint.url, annotated_endpoint.url_components)
-                #input('HOLD')
-
 
 
     def get_page_endpoint(self, page_num): # 1-indexed
-        print(self._endpoint_objs)
-        print('TRYING TO CALL THIS PAGE_NUM:', page_num)
         return self._endpoint_objs[page_num - 1]
 
 
@@ -161,5 +123,3 @@ class Paginator:
         page_num_gen = get_links(self.num_of_pages, on_page, slots) # on_page 1 indexed
         for page_num in page_num_gen:
             yield self.get_page_endpoint(page_num)
-
-

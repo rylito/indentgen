@@ -3,9 +3,6 @@ from dentmark.defs_manager import DefSet
 from dentmark import TagDef, OptionalUnique
 
 class TaxonomyDefSetContent(DefSet):
-    #def __init__(self, tag_set_name, taxonomy_map):
-        #super().__init__(tag_set_name)
-        #self.taxonomy_map = taxonomy_map
 
     PATTERN = re.compile(r'^root\.meta\.taxonomy\.[^\.]+?(?P<parent>\.parent)?$')
 
@@ -21,11 +18,6 @@ class TaxonomyDefSetContent(DefSet):
 
         return new_obj
 
-    #def get_def(self, tag_address):
-        #if tag_address.startswith('root.meta.taxonomy.'): #trailing '.' is significant, 'root.meta.taxonomy' needs to be looked up as usual
-            #return TaxonomyItemTagDef
-        #else:
-            #return self.tag_dict.get(tag_address)
 
     def get_def(self, tag_address):
         m = self.PATTERN.match(tag_address)
@@ -58,17 +50,13 @@ class TaxonomyDefSetTaxonomy(TaxonomyDefSetContent):
 
     def get_children_relations(self, tag_address):
         if tag_address == 'root.meta.taxonomy':
-            #tag_name = tag_address.split('.')[-1]
             return TaxonomyChildrenRelations()
 
         m = self.PATTERN.match(tag_address)
         if m and not m.group('parent'):
-            #return TaxonomyChildrenParentRelation()
             return TaxonomyChildrenRelations()
         else:
             return self.children_relation_dict.get(tag_address, {})
-
-
 
 
 class TaxonomyChildrenRelations:
@@ -80,19 +68,8 @@ class TaxonomyChildrenRelations:
         return [] # causes .items() to do nothing. None of the taxonomy names are required, so don't need to check for missing names
 
 
-#class TaxonomyChildrenParentRelation
-    #def __getitem__(self, item):
-        #return OptionalUnique(item) # arg doesn't really matter, just use item I guess in case I need to debug off it. Could be None or '' too
-
-    #def items(self):
-        #return [] # causes .items() to do nothing. None of the taxonomy names are required, so don't need to check for missing names
-
-
-
-
 class TaxonomyItemTagDef(TagDef):
     is_context = True
-    #allow_children = []
 
     min_num_text_nodes = 0
     max_num_text_nodes = 1
@@ -128,28 +105,13 @@ class TaxonomyItemParentTagDef(TagDef):
     min_num_text_nodes = 0
     max_num_text_nodes = 1
 
-    #parents = [OptionalUnique('root.meta')]
-
     def process_data(self, data):
         if data:
             return data[0].lower() == 'true'
         return True
 
+
     def validate(self):
         if self.children:
             if self.children[0].get_data().lower() not in ('true', 'false'):
                 return f"'parent' tag value must be either 'true', 'false', or [empty]. Defaults to 'true' if [empty]"
-
-
-
-#@taxonomy_tag_set.register()
-#class TaxonomyParentContext(TagDef):
-    #tag_name = 'parent'
-    #is_context = True
-    #allow_children = []
-
-    #min_num_text_nodes = 1
-    #max_num_text_nodes = 1
-
-    #parents = [OptionalUnique('root.meta')]
-

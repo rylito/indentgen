@@ -6,16 +6,14 @@ class PageStore:
     def add(self, endpoint):
         self.pages.append(endpoint)
 
+
     def remove(self, endpoint):
-        print(endpoint.url)
-        print([x.url for x in self.pages])
-        #input('HOLD')
         self.pages.remove(endpoint)
-        #pass
+
 
     def extend(self, endpoint_list_or_pagestore):
         self.pages.extend(endpoint_list_or_pagestore)
-        #return self
+
 
     def extendleft(self, endpoint_list_or_pagestore):
         # TODO probably a way more efficient way to do this using deque or something
@@ -29,18 +27,10 @@ class PageStore:
         self.pages = extended
 
 
-
-    #def filter_pages_DELME(self):
-        #filtered = []
-        #for endpoint in self.pages:
-            #if endpoint.meta.get('pk') is not None:
-                #filtered.append(endpoint)
-        #return PageStore(filtered)
-
-
     def order_by_date(self, descending=True): # sort from latest to earliest (descending) by default
         sort = sorted(self.pages, key=lambda x: x.meta['date'], reverse=descending)
         return PageStore(sort)
+
 
     def order_by_title(self, descending=False):
         sort = sorted(self.pages, key=lambda x: x.meta['title'], reverse=descending)
@@ -50,25 +40,26 @@ class PageStore:
     def recent(self):
         return self.order_by_date(descending=True)
 
+
     def only_taxonomies(self):
         return PageStore([endpoint for endpoint in self.pages if endpoint.is_taxonomy])
+
 
     def exclude_taxonomies(self):
         return PageStore([endpoint for endpoint in self.pages if not endpoint.is_taxonomy])
 
+
     def only_dated(self):
         return PageStore([endpoint for endpoint in self.pages if endpoint.meta.get('date')])
+
 
     def group_by_date(self):
         # (year, month (1 indexed)): PageStore
         by_months = {}
-        # year: PageStore
-        #by_years = {}
 
         for endpoint in self:
             date = endpoint.meta['date']
             by_months.setdefault((date.year, date.month), PageStore()).add(endpoint)
-            #by_years.setdefault(date.year, PageStore()).add(endpoint)
 
         return by_months
 
@@ -77,10 +68,7 @@ class PageStore:
         filtered = []
         parts = {}
         for endpoint in self.pages:
-            #rendered, root = endpoint.get_rendered(wisdom)
-            #meta = root.context['meta']
             if slug in endpoint.taxonomies:
-                #yield endpoint
                 part = endpoint.taxonomies[slug][0]
                 if part is not None:
                     collision_part = parts.get(part)
@@ -90,9 +78,7 @@ class PageStore:
                 filtered.append(endpoint)
 
         # sort by parts/orders
-        #print(len(filtered))
         filtered_and_sorted = sorted(filtered, key=lambda x: x.taxonomies[slug] if x.taxonomies[slug] is not None else len(filtered))
-        #print([x.taxonomies for x in filtered_and_sorted])
 
         #TODO could get rid of the parts = {} and just raise both errors below depending on if part == last_part
 
@@ -138,10 +124,8 @@ class PageStore:
 
         return PageStore(ordered + taxonomies + pages + no_date)
 
+
     def annotate_nav(self, descending=False):
-        print([x.url for x in self.pages])
-        #input('HOLD NAV ANNO')
-        #recent = self.recent()
         recent = self.order_by_date(descending)
         prev = None
         for endpoint in recent:
@@ -157,10 +141,10 @@ class PageStore:
     def __len__(self):
         return len(self.pages)
 
+
     def __getitem__(self, key):
         return self.pages[key]
 
+
     def __add__(self, other):
-        #self.extend(other)
-        #return self
         return PageStore(self.pages + other.pages)
