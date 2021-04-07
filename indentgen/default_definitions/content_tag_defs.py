@@ -38,18 +38,28 @@ class IndentgenContentRoot(TagDef):
 
         # make sure bookmarks have bm tag
         if 'bookmarks' in taxonomy:
-            if 'bm' not in self.context:
-                return "Content belonging to taxonomy 'bookmarks' must define the 'bm' tag (root.bm)"
+            if 'bm' not in self.context['meta']:
+                return "Content belonging to taxonomy 'bookmarks' must define the 'bm' tag (root.meta.bm)"
+
+            bm = self.context['meta']['bm']
+            pub = bm['pub']
+            author = bm['author']
+            title = bm['title']
 
             # set the lead if it isn't declared
             if not self.context['meta'].get('lead'):
-                pub = self.context['bm']['pub']
-                author = self.context['bm']['author']
                 self.context['meta']['lead'] = [f'By {author} / {pub}']
                 self.context['meta']['lead_content'] = f'By {author} / {pub}'
 
-            #TODO would automatically set title and description too, but these are required across typse
-            # maybe a big change/refactor in the future would be to add the ability to use entirely different TagSets
+            # set the description if it isn't declared
+            if not self.context['meta'].get('description'):
+                self.context['meta']['description'] = f'Thoughts on "{title}" from "{pub}"'
+
+            # set the title if it isn't declared
+            if not self.context['meta'].get('title'):
+                self.context['meta']['title'] = title
+
+            # TODO: maybe a big change/refactor in the future would be to add the ability to use entirely different TagSets
             # for different types (basically Hugo's notion of a archetype or whatever)
 
         # promote orphaned text nodes to 'p'
@@ -70,10 +80,21 @@ class IndentgenContentRoot(TagDef):
                 if last_child.is_element and (last_child.tag_name == 'p' or last_child.tag_name == 'sum'):
                     p_tags[-1].add_class('p__endmark')
 
+        if 'articles' in taxonomy or 'thoughts' in taxonomy:
+            # ensure thoughts and articles have title and description in meta
+            # bookmarks are exempts since these are derived from root.meta.bm, but
+            # override the derived versions if present
 
-        # use dropcap for first p of article and p following h2
-        # use gen_tags_by_name to find nested p tags (first p tag might be in summary)
+            if 'title' not in self.context['meta']:
+                return "Content belonging to taxonomy 'articles' or 'thoughts' must define the 'title' tag (root.meta.title)"
+
+            if 'description' not in self.context['meta']:
+                return "Content belonging to taxonomy 'articles' or 'thoughts' must define the 'description' tag (root.meta.description)"
+
+
         if 'articles' in taxonomy:
+            # use dropcap for first p of article and p following h2
+            # use gen_tags_by_name to find nested p tags (first p tag might be in summary)
 
             # dropcap to first p in article, even if it is nested in a sum tag
             for child in self.gen_tags_by_name('p'):
@@ -215,6 +236,12 @@ class TitleMetaContext(TagDef):
 
     parents = [OptionalUnique('root.meta')]
 
+# register this separately since TitleMetaContext is imported and used for
+# Taxonomy config definitons too, which doesn't use root.meta.bm
+@content_tag_set.register()
+class TitleMetaBMContext(TitleMetaContext):
+    parents = [RequiredUnique('root.meta.bm')]
+
 
 @content_tag_set.register()
 class SlugContext(ConfigURLContext):
@@ -314,6 +341,9 @@ class ContentLead(TagDef):
 class ContentMetaDescription(TagDef):
     tag_name = 'description'
     is_context = True
+
+    min_num_text_nodes = 1
+    max_num_text_nodes = 1
 
     parents = [OptionalUnique('root.meta')]
 
@@ -576,6 +606,12 @@ class IndentgenContentBlockQuote(BlockQuote):
 @content_tag_set.register(replace=True)
 class IndentgenContentUnorderedList(UnorderedList):
 
+    # the default dentmark definitions don't allow text-only nodes,
+    # but since we're promoting them in indentgen, re-set these
+    # defaults.
+    min_num_text_nodes = 0
+    max_num_text_nodes = None
+
     def before_render(self):
         # promote orphaned text nodes to 'li'
         for i,child in enumerate(self.children):
@@ -642,7 +678,7 @@ class IndentgenContentBookMark(TagDef):
     min_num_text_nodes = 0
     max_num_text_nodes = 0
 
-    parents = [OptionalUnique('root')]
+    parents = [OptionalUnique('root.meta')]
 
     def process_data(self, data):
         return self.context
@@ -668,7 +704,7 @@ class IndentgenContentBookMarkURL(TagDef):
     min_num_text_nodes = 1
     max_num_text_nodes = 1
 
-    parents = [RequiredUnique('root.bm')]
+    parents = [RequiredUnique('root.meta.bm')]
 
 
 @content_tag_set.register()
@@ -689,7 +725,7 @@ class IndentgenContentBookMarkDiigo(TagDef):
     min_num_text_nodes = 1
     max_num_text_nodes = 1
 
-    parents = [OptionalUnique('root.bm')]
+    parents = [OptionalUnique('root.meta.bm')]
 
 
 @content_tag_set.register()

@@ -121,8 +121,7 @@ class ContentEndpoint(Endpoint):
 
     @property
     def description(self):
-        description_strs = self.meta.get('description', [])
-        return ' '.join(description_strs)
+        return self.meta.get('description', '')
 
     @property
     def slug(self):
