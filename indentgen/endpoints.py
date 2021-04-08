@@ -1,4 +1,3 @@
-import math
 from indentgen.page_store import PageStore
 from calendar import month_name
 from pathlib import Path
@@ -9,7 +8,7 @@ class Endpoint:
     use_template = 'pages/home.html'
     srp = None
     is_taxonomy = False
-    is_redirect = False
+    add_to_sitemap = True
 
     def __init__(self, indentgen_obj, url_components, page=None, subsite_config=None):
         self.url_components = url_components
@@ -37,12 +36,16 @@ class Endpoint:
         # have the '/' added at he beginning and end.
         # Paginated homepage URLS are just /page/xx
         # and so will have //page/xx if this check is
-        # not in place:
-        append_slash = '/' if url[0] != '/' else ''
-        return f"{append_slash}{url}/"
+        # not in place. Also prepends / to /404.html,
+        # /sitemap.xml etc.
+        prepend_slash = '/' if url[0] != '/' else ''
+        append_slash = '/' if not (len(self.url_components) == 1 and '.' in url) else '' # don't append if 404.html, sitemap.xml etc.
+        return f"{prepend_slash}{url}{append_slash}"
 
     @property
     def identifier(self):
+        # TODO probably shouldn't reference self.srp here since it's defined by
+        # a subsclass
         return self.srp if self.srp is not None else self.url
 
     @property
@@ -50,7 +53,7 @@ class Endpoint:
         return {} # for compatibility with templates rather that having to do hasattr checks
 
 
-    def render(self, indentgen_obj):
+    def render(self):
 
         context = {
             'page': self,
@@ -63,7 +66,7 @@ class Endpoint:
             if template_path_prefix:
                 use_template = f'{template_path_prefix}/{self.use_template}'
 
-        template = indentgen_obj.templates.get_template(use_template)
+        template = self.indentgen.templates.get_template(use_template)
         return template.render(**context)
 
 
@@ -79,6 +82,11 @@ class ContentEndpoint(Endpoint):
         self.srp = srp
         self.prev = None
         self.next = None
+
+        # change the template if use_template is set in meta
+        use_template = self.meta.get('use_template')
+        if use_template:
+            self.use_template = use_template
 
     #TODO perhaps optimize this so it doesn't read from cached wisdom .html files if only fetching root
     def get_rendered(self):
@@ -157,7 +165,7 @@ class TaxonomyEndpoint(ContentEndpoint):
 
 class RedirectEndpoint(Endpoint):
     use_template = 'pages/redirect.html'
-    is_redirect = True
+    add_to_sitemap = False
 
     def __init__(self, indentgen_obj, from_url_components, to_endpoint):
         super().__init__(indentgen_obj, from_url_components, None)
@@ -173,11 +181,12 @@ class RedirectEndpoint(Endpoint):
 
 class StaticServeEndpoint(Endpoint):
     use_template = None
+    add_to_sitemap = False
 
     def __init__(self, indentgen_obj, url_components):
         super().__init__(indentgen_obj, url_components, None)
 
-    def render(self, indentgen_obj):
+    def render(self):
         return None
 
     def next_page(self):
@@ -185,11 +194,12 @@ class StaticServeEndpoint(Endpoint):
 
 
 class CachedImgEndpoint(StaticServeEndpoint):
-    pass # use a different class in case we ever need to extend this differently
+    add_to_sitemap = False
 
 
 class DateArchiveEndpoint(Endpoint):
     use_template = 'pages/date_archive.html'
+    add_to_sitemap = False
 
     @property
     def title(self):
@@ -218,3 +228,30 @@ class DateArchiveEndpoint(Endpoint):
         if len(self.url_components) == 3:
             path_titles.append({'title': self.url_components[1], 'url': f'{archive_url}{self.url_components[1]}/'})
         return path_titles
+
+
+# 404, sitemap, rss
+
+class Http404Endpoint(Endpoint):
+    use_template = '404.html'
+    add_to_sitemap = False
+
+    def __init__(self, indentgen_obj):
+        super().__init__(indentgen_obj, ['404.html'])
+
+
+class RssEndpoint(Endpoint):
+    use_template = 'index.xml'
+    add_to_sitemap = False
+
+    def __init__(self, indentgen_obj):
+        super().__init__(indentgen_obj, ['index.xml'])
+
+
+class SiteMapEndpoint(Endpoint):
+    use_template = 'sitemap.xml'
+    add_to_sitemap = False
+
+    def __init__(self, indentgen_obj):
+        super().__init__(indentgen_obj, ['sitemap.xml'])
+

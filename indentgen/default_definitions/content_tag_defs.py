@@ -236,6 +236,26 @@ class TitleMetaContext(TagDef):
 
     parents = [OptionalUnique('root.meta')]
 
+
+@content_tag_set.register()
+class IndentgenContentMetaUseTemplate(TagDef):
+    tag_name = 'use_template'
+    is_context = True
+
+    min_num_text_nodes = 1
+    max_num_text_nodes = 1
+
+    parents = [OptionalUnique('root.meta')]
+
+    def validate(self):
+        path = self.get_data()
+        indentgen = self.extra_context['indentgen']
+        try:
+            indentgen.templates.get_template(path)
+        except Exception as e:
+            return f'use_template: {e}'
+
+
 # register this separately since TitleMetaContext is imported and used for
 # Taxonomy config definitons too, which doesn't use root.meta.bm
 @content_tag_set.register()
@@ -847,3 +867,5 @@ class IndentgenContentMessageExtractLink(IndentgenContentImageAnchorURL):
     tag_name = 'link'
 
     parents = [RequiredUnique('root.extract')]
+
+

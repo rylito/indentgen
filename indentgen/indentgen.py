@@ -15,7 +15,7 @@ from indentgen.path_dict import PathDict
 from indentgen.default_definitions.content_tag_defs import CONTENT_TAG_SET
 from indentgen.default_definitions.taxonomy_tag_defs import TAXONOMY_TAG_SET
 from indentgen.taxonomy_def_set import TaxonomyDefSetContent, TaxonomyDefSetTaxonomy
-from indentgen.endpoints import PAGE_URL, Endpoint, ContentEndpoint, TaxonomyEndpoint, RedirectEndpoint, StaticServeEndpoint, CachedImgEndpoint, DateArchiveEndpoint
+from indentgen.endpoints import PAGE_URL, Endpoint, ContentEndpoint, TaxonomyEndpoint, RedirectEndpoint, StaticServeEndpoint, CachedImgEndpoint, DateArchiveEndpoint, Http404Endpoint, RssEndpoint, SiteMapEndpoint
 from indentgen.paginator import Paginator
 from indentgen.page_store import PageStore
 
@@ -62,6 +62,10 @@ class Indentgen:
 
         self.config_file_path = self.site_path / self.CONFIG_FILE_NAME
 
+        template_dir = self.site_path / self.TEMPLATE_DIR
+        template_cache_dir = self.site_path / self.TEMPLATE_CACHE_DIR
+        self.templates = TemplateLookup(directories=[template_dir], module_directory=template_cache_dir)
+
         self.wisdom = Wisdom(self)
         self.config = self.wisdom.get_config()
 
@@ -92,12 +96,12 @@ class Indentgen:
         self._generate_date_archive_routes()
         self._generate_home_pagination_routes()
 
+        self._generate_404_route()
+        self._generate_rss_route()
+        self._generate_sitemap_route()
+
         self._build_static_file_remapping()
         self._build_resized_img_endpoints()
-
-        template_dir = self.site_path / self.TEMPLATE_DIR
-        template_cache_dir = self.site_path / self.TEMPLATE_CACHE_DIR
-        self.templates = TemplateLookup(directories=[template_dir], module_directory=template_cache_dir)
 
 
     def _gen_walk_content(self, is_taxonomy=False, meta_only=False):
@@ -297,8 +301,8 @@ class Indentgen:
             slug = meta['slug']
             url_components = self._resolve_url_components(slug)
 
-            subsite_data = self.subsite_data.get(srp)
             subsite_config = None
+            subsite_data = self.subsite_data.get(srp)
             if subsite_data:
                 subsite_config = subsite_data['config']
 
@@ -496,6 +500,21 @@ class Indentgen:
             self._generate_home_pagination_routes_helper(per_page, page_store, prefix_components, config)
 
 
+    def _generate_404_route(self):
+        endpoint = Http404Endpoint(self)
+        self._add_route(endpoint)
+
+
+    def _generate_rss_route(self):
+        endpoint = RssEndpoint(self)
+        self._add_route(endpoint)
+
+
+    def _generate_sitemap_route(self):
+        endpoint = SiteMapEndpoint(self)
+        self._add_route(endpoint)
+
+
     def _build_static_file_remapping(self):
         static_file_mapping = {}
 
@@ -569,15 +588,25 @@ class Indentgen:
 
         for endpoint in self.routes.values():
             #print('rendering', endpoint.url_components, endpoint.url, endpoint.identifier, endpoint.get_output_path())
-            rendered = endpoint.render(self)
+            rendered = endpoint.render()
             if rendered is None:
                 continue
 
-            output_path = self.output_path / endpoint.get_output_path()
+            output_path = self.output_path
+            endpoint_output_path = endpoint.get_output_path()
+
+            suffix = endpoint_output_path.suffix
+            if suffix:
+                fname = endpoint_output_path.name
+                if suffix == '.xml':
+                    rendered = rendered.lstrip() # strip leading whitespace from xml files to avoid XML parsing error
+            else:
+                output_path = output_path / endpoint_output_path
+                fname = 'index.html'
 
             output_path.mkdir(parents=True, exist_ok=True)
 
-            with open(output_path / 'index.html', 'w') as f:
+            with open(output_path / fname, 'w') as f:
                 f.write(rendered)
 
         self._copy_static()
