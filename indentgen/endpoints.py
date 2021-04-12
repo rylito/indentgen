@@ -54,7 +54,6 @@ class Endpoint:
 
 
     def render(self):
-
         context = {
             'page': self,
             'config': self.subsite_config or self.indentgen.config
@@ -158,6 +157,10 @@ class TaxonomyEndpoint(ContentEndpoint):
             path_titles.append({'title': focused['title'], 'url': focused['endpoint'].url})
         path_titles.reverse()
         return path_titles
+
+    @property
+    def slug(self):
+        return self.meta['slug_path']
 
     def next_page(self):
         return TaxonomyEndpoint(self.indentgen, self.url_components, self.page + 1, self.srp)

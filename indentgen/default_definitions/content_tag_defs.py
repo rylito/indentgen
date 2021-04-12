@@ -9,10 +9,13 @@ from dentmark.default_definitions.emphasis import Italic
 from dentmark.default_definitions.annotation import Annotation, FootNote
 from dentmark.default_definitions.lists import UnorderedList, ListItem
 from indentgen.default_definitions.config_tag_defs import ConfigURLContext
+from indentgen.taxonomy_def_set import MetaTaxonomyContext
 
 CONTENT_TAG_SET = 'indentgen_content'
 
 content_tag_set = defs_manager.copy_tag_set(CONTENT_TAG_SET) # copies from default Dentmark tags by default
+
+content_tag_set.register_tag(MetaTaxonomyContext)
 
 
 @content_tag_set.register(replace=True)
@@ -37,7 +40,7 @@ class IndentgenContentRoot(TagDef):
         taxonomy = self.context['meta'].get('taxonomy', {})
 
         # make sure bookmarks have bm tag
-        if 'bookmarks' in taxonomy:
+        if 'types/bookmarks' in taxonomy:
             if 'bm' not in self.context['meta']:
                 return "Content belonging to taxonomy 'bookmarks' must define the 'bm' tag (root.meta.bm)"
 
@@ -80,7 +83,7 @@ class IndentgenContentRoot(TagDef):
                 if last_child.is_element and (last_child.tag_name == 'p' or last_child.tag_name == 'sum'):
                     p_tags[-1].add_class('p__endmark')
 
-        if 'articles' in taxonomy or 'thoughts' in taxonomy:
+        if 'types/articles' in taxonomy or 'types/thoughts' in taxonomy:
             # ensure thoughts and articles have title and description in meta
             # bookmarks are exempts since these are derived from root.meta.bm, but
             # override the derived versions if present
@@ -92,7 +95,7 @@ class IndentgenContentRoot(TagDef):
                 return "Content belonging to taxonomy 'articles' or 'thoughts' must define the 'description' tag (root.meta.description)"
 
 
-        if 'articles' in taxonomy:
+        if 'types/articles' in taxonomy:
             # use dropcap for first p of article and p following h2
             # use gen_tags_by_name to find nested p tags (first p tag might be in summary)
 
@@ -196,20 +199,6 @@ class IndentgenContentParagraph(Paragraph):
                     # trim the leadin text off the text node
                     text_nodes[0].text = first_part[len(rejoin):]
                     self.context['use_leadin'] = rejoin
-
-
-@content_tag_set.register()
-class MetaTaxonomyContext(TagDef):
-    tag_name = 'taxonomy'
-    is_context = True
-
-    parents = [OptionalUnique('root.meta')]
-
-    min_num_text_nodes = 0 # don't allow text nodes
-    max_num_text_nodes = 0
-
-    def process_data(self, data):
-        return self.context
 
 
 @content_tag_set.register()

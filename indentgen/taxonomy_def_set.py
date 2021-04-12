@@ -2,9 +2,9 @@ import re
 from dentmark.defs_manager import DefSet
 from dentmark import TagDef, OptionalUnique
 
-class TaxonomyDefSetContent(DefSet):
+class TaxonomyDefSet(DefSet):
 
-    PATTERN = re.compile(r'^root\.meta\.taxonomy\.[^\.]+?(?P<parent>\.parent)?$')
+    PATTERN = re.compile(r'^root\.meta\.taxonomy\..*[^\.]+$')
 
     @classmethod
     def copy_from_def_set(cls, other_def_set):
@@ -21,39 +21,14 @@ class TaxonomyDefSetContent(DefSet):
 
     def get_def(self, tag_address):
         m = self.PATTERN.match(tag_address)
-        if m and not m.group('parent'):
+        if m:
             return TaxonomyItemTagDef
         else:
             return self.tag_dict.get(tag_address)
 
 
     def get_children_relations(self, tag_address):
-        if tag_address == 'root.meta.taxonomy':
-            #tag_name = tag_address.split('.')[-1]
-            return TaxonomyChildrenRelations()
-        else:
-            return self.children_relation_dict.get(tag_address, {})
-
-
-class TaxonomyDefSetTaxonomy(TaxonomyDefSetContent):
-
-    def get_def(self, tag_address):
-        m = self.PATTERN.match(tag_address)
-        if m:
-            if m.group('parent'):
-                return TaxonomyItemParentTagDef
-            else:
-                return TaxonomyItemTagDef
-        else:
-            return self.tag_dict.get(tag_address)
-
-
-    def get_children_relations(self, tag_address):
-        if tag_address == 'root.meta.taxonomy':
-            return TaxonomyChildrenRelations()
-
-        m = self.PATTERN.match(tag_address)
-        if m and not m.group('parent'):
+        if tag_address.startswith('root.meta.taxonomy'):
             return TaxonomyChildrenRelations()
         else:
             return self.children_relation_dict.get(tag_address, {})
@@ -83,12 +58,26 @@ class TaxonomyItemTagDef(TagDef):
 
     def process_data(self, data):
         order = None
+
+        has_order_element = False
+        has_child_elements = False
+
         for child in self.children:
             if not child.is_element:
+                has_order_element = True
                 order = int(child.text)
                 if order < 1:
                     raise ValueError
-        return (order, self.context.get('parent', False))
+            else:
+                has_child_elements = True
+
+        if has_order_element and has_child_elements:
+            raise Exception("Cannot have both an order number set AND child taxonomies listed")
+
+        if has_child_elements:
+            return self.context
+        else:
+            return order
 
 
     def validate(self):
@@ -96,22 +85,36 @@ class TaxonomyItemTagDef(TagDef):
             self.get_data()
         except ValueError:
             return f"Tag '{self.tag_name}' expects a positive integer >= 1"
+        except Exception as e:
+            return f"Tag '{self.tag_name}' {e}"
 
 
-class TaxonomyItemParentTagDef(TagDef):
-    tag_name = 'parent'
+class MetaTaxonomyContext(TagDef):
+    tag_name = 'taxonomy'
     is_context = True
 
-    min_num_text_nodes = 0
-    max_num_text_nodes = 1
+    parents = [OptionalUnique('root.meta')]
+
+    min_num_text_nodes = 0 # don't allow text nodes
+    max_num_text_nodes = 0
 
     def process_data(self, data):
-        if data:
-            return data[0].lower() == 'true'
-        return True
 
+        taxonomies_dict = {}
 
-    def validate(self):
-        if self.children:
-            if self.children[0].get_data().lower() not in ('true', 'false'):
-                return f"'parent' tag value must be either 'true', 'false', or [empty]. Defaults to 'true' if [empty]"
+        def walk_dict(d, slug_path = ''):
+            for k,v in d.items():
+                new_slug_path = slug_path
+                if new_slug_path:
+                    new_slug_path += '/'
+                new_slug_path += k
+
+                if type(v) is dict:
+                    walk_dict(v, new_slug_path)
+                else:
+                    taxonomies_dict[new_slug_path] = v
+
+        walk_dict(self.context)
+
+        return taxonomies_dict
+

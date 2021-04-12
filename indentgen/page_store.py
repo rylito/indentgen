@@ -69,7 +69,7 @@ class PageStore:
         parts = {}
         for endpoint in self.pages:
             if slug in endpoint.taxonomies:
-                part = endpoint.taxonomies[slug][0]
+                part = endpoint.taxonomies[slug]
                 if part is not None:
                     collision_part = parts.get(part)
                     if collision_part is not None:
@@ -85,7 +85,7 @@ class PageStore:
         # check to make sure no missing part numbers 1 - X
         last_part = 0
         for endpoint in filtered_and_sorted:
-            part = endpoint.taxonomies[slug][0]
+            part = endpoint.taxonomies[slug]
             if part is None:
                 continue
             if part != last_part + 1:
@@ -108,8 +108,8 @@ class PageStore:
         no_date = []
 
         for endpoint in self.pages:
-            tax_info = endpoint.taxonomies.get(slug)
-            if tax_info is not None and tax_info[0] is not None:
+            tax_order = endpoint.taxonomies.get(slug)
+            if tax_order is not None:
                 ordered.append(endpoint)
             elif endpoint.is_taxonomy:
                 taxonomies.append(endpoint)
@@ -118,7 +118,7 @@ class PageStore:
             else:
                 no_date.append(endpoint)
 
-            ordered.sort(key=lambda x: x.taxonomies[slug][0])
+            ordered.sort(key=lambda x: x.taxonomies[slug])
             taxonomies.sort(key=lambda x: x.meta['title'])
             pages.sort(key=lambda x: x.meta['date'], reverse=True)
 

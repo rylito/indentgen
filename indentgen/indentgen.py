@@ -14,7 +14,7 @@ from indentgen.wisdom import Wisdom
 from indentgen.path_dict import PathDict
 from indentgen.default_definitions.content_tag_defs import CONTENT_TAG_SET
 from indentgen.default_definitions.taxonomy_tag_defs import TAXONOMY_TAG_SET
-from indentgen.taxonomy_def_set import TaxonomyDefSetContent, TaxonomyDefSetTaxonomy
+from indentgen.taxonomy_def_set import TaxonomyDefSet
 from indentgen.endpoints import PAGE_URL, Endpoint, ContentEndpoint, TaxonomyEndpoint, RedirectEndpoint, StaticServeEndpoint, CachedImgEndpoint, DateArchiveEndpoint, Http404Endpoint, RssEndpoint, SiteMapEndpoint
 from indentgen.paginator import Paginator
 from indentgen.page_store import PageStore
@@ -131,8 +131,8 @@ class Indentgen:
         # Monkey patch this to use the extended class to defer resolving tag names
         # Kinda hacky, but it works
 
-        for tag_set, patch_def_set  in ((content_tag_set, TaxonomyDefSetContent), (taxonomy_tag_set, TaxonomyDefSetTaxonomy)):
-            new_def_set = patch_def_set.copy_from_def_set(tag_set)
+        for tag_set in (content_tag_set, taxonomy_tag_set):
+            new_def_set = TaxonomyDefSet.copy_from_def_set(tag_set)
             dentmark.defs_manager.def_sets[tag_set.tag_set_name] = new_def_set
 
 
@@ -144,44 +144,36 @@ class Indentgen:
         for srp, rendered, root in self._gen_walk_content(is_taxonomy=True):
             meta = root.context['meta']
 
-            slug = meta['slug']
-            collision = tax_map.get(slug)
+            slug_path = meta['slug_path']
+            collision = tax_map.get(slug_path)
             if collision:
                 raise Exception(f"Taxonomy slugs conflict: {srp} and {collision['srp']}")
 
-            tax_map[slug] = {'slug': slug, 'srp': srp, 'title': meta['title']}
-            tax_map[slug]['pseudo'] = meta['pseudo'] if 'pseudo' in meta else False
+            tax_map[slug_path] = {'slug_path': slug_path, 'srp': srp, 'title': meta['title']}
+            tax_map[slug_path]['pseudo'] = meta['pseudo'] if 'pseudo' in meta else False
 
-            parent = None
+            slug_path_components = slug_path.split('/')
 
-            for tax_slug, (order, is_parent) in meta.get('taxonomy', {}).items():
-                if is_parent:
-                    parent = tax_slug
-                    break
+            parent = '/'.join(slug_path_components[:-1])
 
             #TODO enforce that pseudo taxonomies cannot have children?
 
             if parent:
-                tax_map[slug]['parent'] = parent
+                tax_map[slug_path]['parent'] = parent
             else:
-                top_level_taxonomies.append(slug)
+                top_level_taxonomies.append(slug_path)
 
 
-        for slug, info in tax_map.items():
-            parent_slug = info.get('parent')
-            if parent_slug:
+        for slug_path, info in tax_map.items():
+            parent_slug_path = info.get('parent')
+            if parent_slug_path:
                 try:
-                    children = tax_map[parent_slug].setdefault('children', [])
+                    children = tax_map[parent_slug_path].setdefault('children', [])
                 except KeyError:
-                    raise Exception(f"{info['srp']}: invalid parent taxonomy: '{parent_slug}'")
-                children.append(slug)
+                    raise Exception(f"{info['srp']}: invalid parent taxonomy: '{parent_slug_path}'")
+                children.append(slug_path)
 
-            url_components = [info['slug']]
-            focused = info
-            while 'parent' in focused:
-                focused = tax_map[focused['parent']]
-                url_components.append(focused['slug'])
-            url_components.reverse()
+            url_components = info['slug_path'].split('/')
 
             info['top_level'] = url_components[0]
 

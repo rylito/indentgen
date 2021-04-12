@@ -112,7 +112,6 @@ class Wisdom:
         render_cache[key_srp] = {'mts': mts, 'root': pickleable_root}
 
         self.save()
-
         return rendered, root
 
 

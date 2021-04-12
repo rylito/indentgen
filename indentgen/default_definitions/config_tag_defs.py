@@ -13,7 +13,7 @@ class ConfigURLContext(TagDef):
     min_num_text_nodes = 1
     max_num_text_nodes = 1
 
-    url_pattern = re.compile(r'^(?P<url>[a-z0-9][a-z0-9-]*[a-z0-9])$')
+    url_pattern = re.compile(r'^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$')
 
     def validate(self):
         val = self.get_data()
