@@ -27,22 +27,22 @@ class IndentgenContentRoot(TagDef):
         meta_summary = self.context['meta'].get('summary')
         pk = self.context['meta'].get('pk')
 
+        taxonomy = self.context['meta'].get('taxonomy', {})
+
         if not pk and (inline_sum or meta_summary):
             return 'Content with no pk cannot have inline sum tags or meta summary'
 
-        if pk and (inline_sum and meta_summary):
+        if (inline_sum and meta_summary):
             return 'Cannot declare meta.summary AND inline sum tags. Remove the meta.summary or the inline sum tags.'
 
         if pk and not (inline_sum or meta_summary):
             return 'Content with pk must declare an inline summary with sum tags OR a meta summary'
 
 
-        taxonomy = self.context['meta'].get('taxonomy', {})
-
         # make sure bookmarks have bm tag
         if 'types/bookmarks' in taxonomy:
             if 'bm' not in self.context['meta']:
-                return "Content belonging to taxonomy 'bookmarks' must define the 'bm' tag (root.meta.bm)"
+                return "Content belonging to taxonomy 'types/bookmarks' must define the 'bm' tag (root.meta.bm)"
 
             bm = self.context['meta']['bm']
             pub = bm['pub']
@@ -115,6 +115,28 @@ class IndentgenContentRoot(TagDef):
                 next_p = child.next_tag_of_type('p')
                 if next_p:
                     next_p.context['use_leadin'] = ''
+
+        # make sure only photos types have gallery tag
+        if 'gallery' in self.context['meta']:
+            # check against all the taxonomies since taxonomies specify gallery
+            gallery_valid = False
+            tax_defs = self.extra_context['indentgen'].taxonomy_map
+            for tax_slug_path in taxonomy:
+                if tax_defs[tax_slug_path]['gallery']:
+                    gallery_valid = True
+                    break
+            if not gallery_valid:
+                return "Only content with a taxonomy with 'gallery' set may define the 'gallery' tag (root.meta.gallery)"
+
+            # do not specify meta.img since galleries draw from meta.gallery.img OR use the 1st image in the gallery
+            # have to do it this way since the img tag won't populate until after render
+            meta_def = self.get_child_by_name('meta')
+            if meta_def.get_child_by_name('img'):
+                return "meta.img prohibited for a gallery page. These draw the featured image from meta.gallery.img OR use the 1st image in the gallery"
+
+            # check that multiple covers aren't specified
+            if len(self.collectors.get('cover', [])) > 1:
+                return "Only 1 cover tag can be specified for a root.meta.gallery.img tag. Multiple cover tags detected"
 
 
     def render_main(self):
@@ -408,17 +430,14 @@ class IndentgenContentImage(TagDef):
 
 @content_tag_set.register()
 class IndentgenContentImageMeta(IndentgenContentImage):
-    tag_name = 'img'
-    is_context = True
 
-    parents = [Optional('root.meta')]
+    parents = [OptionalUnique('root.meta'), Optional('root.meta.gallery')]
 
     def render_main(self):
-        self.parent.context['img']['key'] = self.get_image_data()[0]
+        img_ctx = self.parent.context.setdefault('img', [])
+        self.context['key'] = self.get_image_data()[0]
+        img_ctx.append(self.context)
         return ''
-
-    def process_data(self, data):
-        return self.context
 
 
 @content_tag_set.register()
@@ -433,7 +452,7 @@ class IndentgenContentImageAttr(TagDef):
     tag_name = 'attr'
     is_context = True
 
-    parents = [OptionalUnique('root.img'), OptionalUnique('root.meta.img')]
+    parents = [OptionalUnique('root.img'), OptionalUnique('root.meta.img'), OptionalUnique('root.meta.gallery.img')]
 
     def render_main(self):
         self.parent.context[f'{self.tag_name}_content'] = self.content
@@ -447,6 +466,14 @@ class IndentgenContentImageCaption(IndentgenContentImageAttr):
 
     def process_data(self, data):
         return [' '.join(x.text for x in self.strip_tags())]
+
+
+@content_tag_set.register()
+class IndentgenContentImageGalleryCover(MetaDisableCommentsContext):
+    tag_name = 'cover'
+    add_to_collector = True
+
+    parents = [OptionalUnique('root.meta.gallery.img')]
 
 
 @content_tag_set.register()
@@ -857,4 +884,41 @@ class IndentgenContentMessageExtractLink(IndentgenContentImageAnchorURL):
 
     parents = [RequiredUnique('root.extract')]
 
+
+@content_tag_set.register()
+class IndentgenContentPhotoGallery(TagDef):
+    tag_name = 'gallery'
+    is_context = True
+
+    min_num_text_nodes = 0
+    max_num_text_nodes = 0
+
+    parents = [OptionalUnique('root.meta')]
+
+    def process_data(self, data):
+        return self.context
+
+
+@content_tag_set.register()
+class IndentgenContentPhotoGalleryPerPage(TagDef):
+    tag_name = 'per_page'
+    is_context = True
+
+    min_num_text_nodes = 1
+    max_num_text_nodes = 1
+
+    parents = [OptionalUnique('root.meta.gallery')]
+
+    def process_data(self, data):
+        per_page = int(data[0])
+        if per_page < 0:
+            raise ValueError
+        return per_page
+
+
+    def validate(self):
+        try:
+            self.get_data()
+        except ValueError:
+            return f"Tag '{self.tag_name}' in meta.gallery expects a positive integer"
 

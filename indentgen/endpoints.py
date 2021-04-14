@@ -9,12 +9,16 @@ class Endpoint:
     srp = None
     is_taxonomy = False
     add_to_sitemap = True
+    is_gallery = False
 
     def __init__(self, indentgen_obj, url_components, page=None, subsite_config=None):
         self.url_components = url_components
         self.page = page
         self.indentgen = indentgen_obj
         self.subsite_config = subsite_config
+        self.child_pages = None
+        self.paginator_page = None
+
 
     def get_output_path(self):
         if self.page is None or self.page == 0:
@@ -54,6 +58,7 @@ class Endpoint:
 
 
     def render(self):
+        print('rendering', self.url)
         context = {
             'page': self,
             'config': self.subsite_config or self.indentgen.config
@@ -70,7 +75,9 @@ class Endpoint:
 
 
     def next_page(self):
-        return Endpoint(self.indentgen, self.url_components, self.page + 1)
+        next_ep = Endpoint(self.indentgen, self.url_components, self.page + 1, self.subsite_config)
+        next_ep.child_pages = self.child_pages
+        return next_ep
 
 
 class ContentEndpoint(Endpoint):
@@ -134,11 +141,33 @@ class ContentEndpoint(Endpoint):
     def slug(self):
         return self.meta['slug']
 
+    @property
+    def is_gallery(self):
+        return self.paginator_page is not None
+
     def get_taxonomy_group(self, top_level_taxonomy):
         #TODO maybe cache this in indentgen so we're not having to re-filter these over and over for every hit
         filter_page_taxonomies = [k for k,v in self.indentgen.taxonomy_map.items() if v['top_level'] == top_level_taxonomy]
         taxonomies_for_page =  set(filter_page_taxonomies).intersection(self.taxonomies)
         return PageStore([self.indentgen.taxonomy_map[slug]['endpoint'] for slug in taxonomies_for_page])
+
+    def next_page(self):
+        next_ep = ContentEndpoint(self.indentgen, self.url_components, self.page + 1, self.srp, self.subsite_config)
+        next_ep.child_pages = self.child_pages
+        return next_ep
+
+
+class ContentGalleryEndpoint(Endpoint):
+    use_template = 'pages/gallery_item.html'
+    add_to_sitemap = False
+
+    def __init__(self, indentgen_obj, url_components, srp, photo_data, gallery_endpoint): #TODO photogalleries in subsites?
+        super().__init__(indentgen_obj, url_components, None, None)
+        self.srp = srp # srp of image
+        self.photo_data = photo_data
+        self.gallery_endpoint = gallery_endpoint
+        self.prev = None
+        self.next = None
 
     def next_page(self):
         return None # this class does not have paginated pages, so this method should never be called
@@ -147,6 +176,7 @@ class ContentEndpoint(Endpoint):
 class TaxonomyEndpoint(ContentEndpoint):
     use_template = 'pages/taxonomy.html'
     is_taxonomy = True
+    is_gallery = False
 
     @property
     def breadcrumbs(self):
@@ -163,7 +193,9 @@ class TaxonomyEndpoint(ContentEndpoint):
         return self.meta['slug_path']
 
     def next_page(self):
-        return TaxonomyEndpoint(self.indentgen, self.url_components, self.page + 1, self.srp)
+        next_ep = TaxonomyEndpoint(self.indentgen, self.url_components, self.page + 1, self.srp, self.subsite_config)
+        next_ep.child_pages = self.child_pages
+        return next_ep
 
 
 class RedirectEndpoint(Endpoint):

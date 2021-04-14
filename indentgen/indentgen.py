@@ -15,7 +15,7 @@ from indentgen.path_dict import PathDict
 from indentgen.default_definitions.content_tag_defs import CONTENT_TAG_SET
 from indentgen.default_definitions.taxonomy_tag_defs import TAXONOMY_TAG_SET
 from indentgen.taxonomy_def_set import TaxonomyDefSet
-from indentgen.endpoints import PAGE_URL, Endpoint, ContentEndpoint, TaxonomyEndpoint, RedirectEndpoint, StaticServeEndpoint, CachedImgEndpoint, DateArchiveEndpoint, Http404Endpoint, RssEndpoint, SiteMapEndpoint
+from indentgen.endpoints import PAGE_URL, Endpoint, ContentEndpoint, ContentGalleryEndpoint, TaxonomyEndpoint, RedirectEndpoint, StaticServeEndpoint, CachedImgEndpoint, DateArchiveEndpoint, Http404Endpoint, RssEndpoint, SiteMapEndpoint
 from indentgen.paginator import Paginator
 from indentgen.page_store import PageStore
 
@@ -35,10 +35,12 @@ class Indentgen:
     OUTPUT_DIR = 'publish'
     STATIC_URL = '_static'
     CACHE_BUST_STATIC_EXTENSIONS = ('.css', '.js') #TODO put this in config.dentmark instead?
+    GALLERY_IMAGE_EXTENSIONS = ('.jpg', '.jpeg', '.png')
 
     IMAGE_URL = '_img'
 
     DEFAULT_PER_PAGE = 25
+    DEFAULT_PER_PAGE_GALLERY = 50
 
     def __init__(self, site_path):
         self.site_path = Path(site_path)
@@ -151,6 +153,7 @@ class Indentgen:
 
             tax_map[slug_path] = {'slug_path': slug_path, 'srp': srp, 'title': meta['title']}
             tax_map[slug_path]['pseudo'] = meta['pseudo'] if 'pseudo' in meta else False
+            tax_map[slug_path]['gallery'] = meta['gallery'] if 'gallery' in meta else False
 
             slug_path_components = slug_path.split('/')
 
@@ -284,6 +287,50 @@ class Indentgen:
         return components
 
 
+    def _get_content_gallery_endpoint(self, gallery_ctx, url_components, srp, subsite_config):
+        endpoint_0 = ContentEndpoint(self, url_components, 0, srp, subsite_config)
+
+        # TODO gather photos. For now, just assume all photos live in same directory (alongside)
+        # dentmark file. Maybe later, we can make this search location customizable with a context
+        # tag or something.
+
+        child_pages = PageStore()
+        image_srps = []
+        search_dir = srp.parent
+        for f in search_dir.glob(f'**/*.*'):
+            for ext in self.GALLERY_IMAGE_EXTENSIONS:
+                if ext.lower() == f.suffix.lower():
+                    image_srps.append(f)
+                    break
+        image_srps.sort()
+
+        per_page_gallery = gallery_ctx.get('per_page', self.DEFAULT_PER_PAGE_GALLERY)
+
+        prev = None
+        for i,image_srp in enumerate(image_srps):
+            # gallery url should be /XX-entry-slug/[image_1_indexed]
+            gal_url_components = url_components + [str(i+1)]
+
+            photo_data = {}
+            #TODO iterating over this every time isn't efficient. Use sorted dict or something?
+            for img_data in gallery_ctx.get('img', []):
+                if img_data['key'] == image_srp:
+                    photo_data = img_data
+                    break
+
+            gal_endpoint = ContentGalleryEndpoint(self, gal_url_components, image_srp, photo_data, endpoint_0) #TODO add attrs later
+            if prev is not None:
+                prev.next = gal_endpoint
+                gal_endpoint.prev = prev
+            child_pages.add(gal_endpoint)
+            self._add_route(gal_endpoint)
+            prev = gal_endpoint
+
+        endpoint_0.child_pages = child_pages
+        self._make_paginated_routes(endpoint_0, per_page_gallery)
+        return endpoint_0
+
+
     def _build_page_store(self):
         page_store = PageStore()
         non_pk_page_store = PageStore()
@@ -298,10 +345,20 @@ class Indentgen:
             if subsite_data:
                 subsite_config = subsite_data['config']
 
-            #None is for 0th page, these won't have multiple pages
-            endpoint = ContentEndpoint(self, url_components, None, srp, subsite_config)
+            has_gallery = False
+            for tax_slug_path in meta.get('taxonomy', {}):
+                if self.taxonomy_map[tax_slug_path]['gallery']:
+                    has_gallery = True
+                    break
 
-            self._add_route(endpoint)
+            if has_gallery:
+                gallery_ctx = meta.get('gallery', {})
+
+                endpoint = self._get_content_gallery_endpoint(gallery_ctx, url_components, srp, subsite_config)
+            else:
+                #None is for 0th page, these won't have multiple pages
+                endpoint = ContentEndpoint(self, url_components, None, srp, subsite_config)
+                self._add_route(endpoint)
 
             pk = meta.get('pk')
 
@@ -338,7 +395,7 @@ class Indentgen:
         self.non_pk_page_store = non_pk_page_store
 
 
-    def _make_paginated_routes(self, base_endpoint):
+    def _make_paginated_routes(self, base_endpoint, per_page=None):
         url_components = base_endpoint.url_components
 
         base_redirect = RedirectEndpoint(self, url_components + [PAGE_URL] + ['1'], base_endpoint) # 2021/3/page/1 -> 2021/3/
@@ -350,7 +407,9 @@ class Indentgen:
         #TODO this paginator stuff is a mess. clean it up. The PageStore should probably generate the paginator,
         # not all of this attaching the paginator to the endpoint crap. Plus violating DRY doing this in about 3 places
 
-        per_page = self.config.get('per_page', self.DEFAULT_PER_PAGE)
+        if per_page is None:
+            per_page = self.config.get('per_page', self.DEFAULT_PER_PAGE)
+
         pag = Paginator(base_endpoint.child_pages, per_page)
 
         for endpoint in pag.gen_all_pages(base_endpoint):

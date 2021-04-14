@@ -50,6 +50,16 @@ class TaxonomyPseudoContext(TagDef):
 
 
 @taxonomy_tag_set.register()
+class TaxonomyGalleryContext(TaxonomyPseudoContext):
+    tag_name = 'gallery'
+
+    def validate(self):
+        if self.children:
+            if self.children[0].get_data().lower() not in ('true', 'false'):
+                return f"'gallery' tags value must be either 'true', 'false', or [empty]. Defaults to 'true' if [empty]"
+
+
+@taxonomy_tag_set.register()
 class ConfigSlugPathContext(TagDef):
     tag_name = 'slug_path'
     is_context = True

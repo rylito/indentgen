@@ -242,9 +242,12 @@ class Wisdom:
                 try:
                     mts = original_path.stat().st_mtime
                 except FileNotFoundError as e:
-                    raise Exception(f"Error in {img_data['dentmark_srp']}: Image file not found: {img_data['relative_path']}")
+                    #raise Exception(f"Error in {img_data['dentmark_srp']}: Image file not found: {img_data['relative_path']}")
+                    print(f"Stale Cached Image in Wisdom. No longer exists in content: {img_data['relative_path']}")
+                    continue
 
                 if mts != img_data['mts'] or not cached_path.exists():
+                    print(f"Resizing image to {img_data['max_width']}x{img_data['max_height']}: {original_path}")
                     resize(original_path, cached_path, img_data['max_width'], img_data['max_height'])
                     img_data['mts'] = mts
                     self.save()
