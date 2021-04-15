@@ -38,6 +38,12 @@ class IndentgenContentRoot(TagDef):
         if pk and not (inline_sum or meta_summary):
             return 'Content with pk must declare an inline summary with sum tags OR a meta summary'
 
+        is_gallery = False
+        tax_defs = self.extra_context['indentgen'].taxonomy_map
+        for tax_slug_path in taxonomy:
+            if tax_defs[tax_slug_path]['gallery']:
+                is_gallery = True
+                break
 
         # make sure bookmarks have bm tag
         if 'types/bookmarks' in taxonomy:
@@ -73,7 +79,8 @@ class IndentgenContentRoot(TagDef):
 
         # decorate last 'p' with endmark
         # use gen_tags_by_name to find nested p tags (last p tag might be in summary for short posts)
-        if self.context['meta'].get('pk') is not None: # Don't do this for info pages that don't have a pk
+        # don't do this for gallery pages
+        if self.context['meta'].get('pk') is not None and not is_gallery: # Don't do this for info pages that don't have a pk
             p_tags = list(self.gen_tags_by_name('p'))
             if p_tags:
                 last_child = self.children[-1]
@@ -118,18 +125,12 @@ class IndentgenContentRoot(TagDef):
 
         # make sure only photos types have gallery tag
         if 'gallery' in self.context['meta']:
-            # check against all the taxonomies since taxonomies specify gallery
-            gallery_valid = False
-            tax_defs = self.extra_context['indentgen'].taxonomy_map
-            for tax_slug_path in taxonomy:
-                if tax_defs[tax_slug_path]['gallery']:
-                    gallery_valid = True
-                    break
-            if not gallery_valid:
+            if not is_gallery:
                 return "Only content with a taxonomy with 'gallery' set may define the 'gallery' tag (root.meta.gallery)"
 
-            # do not specify meta.img since galleries draw from meta.gallery.img OR use the 1st image in the gallery
-            # have to do it this way since the img tag won't populate until after render
+        # do not specify meta.img since galleries draw from meta.gallery.img OR use the 1st image in the gallery
+        # have to do it this way since the img tag won't populate until after render
+        if is_gallery:
             meta_def = self.get_child_by_name('meta')
             if meta_def.get_child_by_name('img'):
                 return "meta.img prohibited for a gallery page. These draw the featured image from meta.gallery.img OR use the 1st image in the gallery"
