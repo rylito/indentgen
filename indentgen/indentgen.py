@@ -345,10 +345,15 @@ class Indentgen:
             if subsite_data:
                 subsite_config = subsite_data['config']
 
+            #TODO DRY violation with content_tag_defs
             has_gallery = False
             for tax_slug_path in meta.get('taxonomy', {}):
-                if self.taxonomy_map[tax_slug_path]['gallery']:
-                    has_gallery = True
+                try:
+                    has_gallery = self.taxonomy_map[tax_slug_path]['gallery']
+                except KeyError:
+                    pass
+
+                if has_gallery:
                     break
 
             if has_gallery:
@@ -659,6 +664,13 @@ class Indentgen:
 
             with open(output_path / fname, 'w') as f:
                 f.write(rendered)
+
+            # copy any files listed in meta.manifest
+            manifest = endpoint.meta.get('manifest', [])
+            for srp in manifest:
+                from_path = self.site_path / srp
+                to_path = output_path / srp.name
+                shutil.copyfile(from_path, to_path)
 
         self._copy_static()
         self._copy_cached_imgs()

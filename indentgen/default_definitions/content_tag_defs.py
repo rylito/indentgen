@@ -41,8 +41,12 @@ class IndentgenContentRoot(TagDef):
         is_gallery = False
         tax_defs = self.extra_context['indentgen'].taxonomy_map
         for tax_slug_path in taxonomy:
-            if tax_defs[tax_slug_path]['gallery']:
-                is_gallery = True
+            try:
+                is_gallery = tax_defs[tax_slug_path]['gallery']
+            except KeyError:
+                pass
+
+            if is_gallery:
                 break
 
         # make sure bookmarks have bm tag
@@ -581,7 +585,9 @@ class IndentgenContentImageAnchorURL(URLContext):
         OptionalUnique('root.aside.a'),
         OptionalUnique('root.ma'),
         OptionalUnique('root.extract.a'),
-        OptionalUnique('root.p.hl.a')
+        OptionalUnique('root.p.hl.a'),
+        OptionalUnique('root.sum.p.a'),
+        OptionalUnique('root.ul.li.a')
     ]
 
 
@@ -616,6 +622,7 @@ class IndentgenContentSumItalic(Italic):
         Optional('root.p.pq'),
         Optional('root.p.a8n'),
         Optional('root.img.caption'),
+        Optional('root.meta.img.caption'),
         Optional('root.ul.li.a8n.fn')
     ]
 
@@ -927,3 +934,44 @@ class IndentgenContentPhotoGalleryPerPage(TagDef):
         except ValueError:
             return f"Tag '{self.tag_name}' in meta.gallery expects a positive integer"
 
+
+@content_tag_set.register()
+class IdentgenContentMetaManifest(TagDef):
+    tag_name = 'manifest'
+    is_context = True
+
+    min_num_text_nodes = 1
+
+    parents = [OptionalUnique('root.meta')]
+
+    def process_data(self, data):
+        indentgen_obj = self.extra_context['indentgen']
+        dentmark_srp = self.extra_context['srp']
+
+        paths = []
+        for filepath in data:
+            full_path = indentgen_obj.site_path / dentmark_srp.parent / filepath
+
+            try:
+                resolved = full_path.resolve(True) # make sure the image exists
+                relative = resolved.relative_to(indentgen_obj.site_path) # make sure relative path doesn't ascend past the site_path
+            except (ValueError, FileNotFoundError) as e:
+                raise Exception(f"Invalid url in manifest: {filepath}")
+
+            paths.append(relative)
+        return paths
+
+
+    def validate(self):
+        try:
+            data = self.get_data()
+        except Exception as e:
+            return e
+
+        name_set = set()
+
+        for filepath in data:
+            name = filepath.name
+            if name in name_set:
+                return f"Filename collision in manifest: {name}"
+            name_set.add(name)
