@@ -627,13 +627,13 @@ class IndentgenContentSumItalic(Italic):
     ]
 
 
-@content_tag_set.register()
-class IndentgenContenBqA8n(Annotation):
-    parents = [Optional('root.bq.p'), Optional('root.ul.li')]
+#@content_tag_set.register()
+#class IndentgenContenBqA8n(Annotation):
+    #pass
 
-@content_tag_set.register()
-class IndentgenContenBqFootnote(FootNote):
-    parents = [Optional('root.bq.p.a8n'), Optional('root.ul.li.a8n')]
+#@content_tag_set.register()
+#class IndentgenContenBqFootnote(FootNote):
+    #parents = [Optional('root.bq.p.a8n'), Optional('root.ul.li.a8n')]
 
 @content_tag_set.register()
 class IndentgenContentBr(Break):
