@@ -152,13 +152,14 @@ class IndentgenContentRoot(TagDef):
 
         taxonomy = self.context['meta'].get('taxonomy', {})
 
+
         if 'bm' in self.collectors:
             body = self.collectors['bm'][0] + body
 
-        if 'articles' in taxonomy or self.context['meta']['slug'] == 'about':
+        if 'types/articles' in taxonomy or self.context['meta']['slug'] == 'about':
             indentgen = self.extra_context['indentgen']
 
-            if 'creative-writing' in taxonomy:
+            if 'categories/creative-writing' in taxonomy:
                 url = '/who-is-nally-dupri/'
                 sig_suffix = 'nd'
                 alt = 'Nally Duprí'
