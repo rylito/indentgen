@@ -50,9 +50,9 @@ class IndentgenContentRoot(TagDef):
                 break
 
         # make sure bookmarks have bm tag
-        if 'types/bookmarks' in taxonomy:
+        if 'types/reviews/articles' in taxonomy:
             if 'bm' not in self.context['meta']:
-                return "Content belonging to taxonomy 'types/bookmarks' must define the 'bm' tag (root.meta.bm)"
+                return "Content belonging to taxonomy 'types/reviews/articles' must define the 'bm' tag (root.meta.bm)"
 
             bm = self.context['meta']['bm']
             pub = bm['pub']
@@ -74,6 +74,33 @@ class IndentgenContentRoot(TagDef):
 
             # TODO: maybe a big change/refactor in the future would be to add the ability to use entirely different TagSets
             # for different types (basically Hugo's notion of a archetype or whatever)
+
+        # make sure book reviews have book tag
+        if 'types/reviews/books' in taxonomy:
+            if 'book' not in self.context['meta']:
+                return "Content belonging to taxonomy 'types/reviews/books' must define the 'book' tag (root.meta.book)"
+
+            book = self.context['meta']['book']
+            author = book['author']
+            title = book['title']
+
+            # set the lead if it isn't declared
+            if not self.context['meta'].get('lead'):
+                self.context['meta']['lead'] = [f'By {author}']
+                self.context['meta']['lead_content'] = f'By {author}'
+
+            # set the description if it isn't declared
+            if not self.context['meta'].get('description'):
+                self.context['meta']['description'] = f'Thoughts on "{title}" by "{author}"'
+
+            # set the title if it isn't declared
+            if not self.context['meta'].get('title'):
+                self.context['meta']['title'] = title
+
+            # TODO: maybe a big change/refactor in the future would be to add the ability to use entirely different TagSets
+            # for different types (basically Hugo's notion of a archetype or whatever)
+
+        # TODO: check that meta does not have both bm and book. Check that tax does not include both reviews/articles and reviews/books
 
         # promote orphaned text nodes to 'p'
         for i,child in enumerate(self.children):
@@ -155,6 +182,9 @@ class IndentgenContentRoot(TagDef):
 
         if 'bm' in self.collectors:
             body = self.collectors['bm'][0] + body
+
+        if 'book' in self.collectors:
+            body = self.collectors['book'][0] + body
 
         if 'types/articles' in taxonomy or self.context['meta']['slug'] == 'about':
             indentgen = self.extra_context['indentgen']
@@ -277,7 +307,7 @@ class IndentgenContentMetaUseTemplate(TagDef):
 # Taxonomy config definitons too, which doesn't use root.meta.bm
 @content_tag_set.register()
 class TitleMetaBMContext(TitleMetaContext):
-    parents = [RequiredUnique('root.meta.bm')]
+    parents = [RequiredUnique('root.meta.bm'), RequiredUnique('root.meta.book')]
 
 
 @content_tag_set.register()
@@ -717,6 +747,7 @@ class IndentgenContentPutRef(TagDef):
         except (ValueError, KeyError, IndexError) as e:
             return f'Invalid putref key: {self.get_data()}'
 
+# begin meta.bm
 
 @content_tag_set.register()
 class IndentgenContentBookMark(TagDef):
@@ -742,7 +773,7 @@ class IndentgenContentBookMark(TagDef):
         if diigo:
             annotated_src = f' <small>[ <a href="https://diigo.com/{diigo}">Annotated Version</a> ]</small>'
 
-        return f'<p class="bookmark__link">Original Source: <a href="{url}"><i>{pub}</i></a>{annotated_src}</p>'
+        return f'<p class="bookmark__link">The following is my review of <a href="{url}">this article</a> from <i>{pub}</i>{annotated_src}</p>'
 
 
 @content_tag_set.register()
@@ -753,12 +784,14 @@ class IndentgenContentBookMarkURL(TagDef):
     min_num_text_nodes = 1
     max_num_text_nodes = 1
 
-    parents = [RequiredUnique('root.meta.bm')]
+    parents = [RequiredUnique('root.meta.bm'), RequiredUnique('root.meta.book')]
 
 
 @content_tag_set.register()
 class IndentgenContentBookMarkPublication(IndentgenContentBookMarkURL):
     tag_name = 'pub'
+
+    parents = [RequiredUnique('root.meta.bm')]
 
 
 @content_tag_set.register()
@@ -775,6 +808,20 @@ class IndentgenContentBookMarkDiigo(TagDef):
     max_num_text_nodes = 1
 
     parents = [OptionalUnique('root.meta.bm')]
+
+
+# begin meta.book
+
+@content_tag_set.register()
+class IndentgenContentBook(IndentgenContentBookMark):
+    tag_name = 'book'
+
+    def render_secondary(self):
+        url = self.context['url']
+        author = self.context['author']
+        title = self.context['title']
+
+        return f'<p class="bookmark__link">The following is my review of <a href="{url}"><i>{title}</i></a> by {author}</p>'
 
 
 @content_tag_set.register()
