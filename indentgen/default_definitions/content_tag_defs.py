@@ -91,7 +91,7 @@ class IndentgenContentRoot(TagDef):
 
             # set the description if it isn't declared
             if not self.context['meta'].get('description'):
-                self.context['meta']['description'] = f'Thoughts on "{title}" by "{author}"'
+                self.context['meta']['description'] = f'Thoughts on "{title}" by {author}'
 
             # set the title if it isn't declared
             if not self.context['meta'].get('title'):
