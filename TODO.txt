@@ -1,0 +1,45 @@
+- purge wisdom of stale render_cache entries (i.e. if pages move or get deleted)
+- TODO enforce 1 of taxonomy type or something
+- new cmd to create dentmark content templates
+
+- tax descriptions/body in summary list
+
+
+- split out custom tagdefs from generic ones
+- even better handling of parent tag defs... it's getting really annoying havig to enumaret every possibility of nesting/child combinations
+
+
+# maybe a big change/refactor in the future would be to add the ability to use entirely different TagSets
+# for different types (basically Hugo's notion of a archetype or whatever)
+
+- animated gifs are getting converted to non-animated png. Maybe keep file type the same or bypass pillow if .gif?
+
+- promote to p -> common enough operation... make this a class property or method?
+
+
+- enforce entry has at least one type as taxonomy
+- set per_page to 25 or something reasonable when finished testing
+- new command line command that lists all of the taxonomies in alphabetical order commented out (archlinux mirror style)
+- differentiate betwen slugs and www... in url tag, to avoid confusion or broken links in case forgetting leading slash
+
+- popular posts (maybe manually update this, or maybe it comes from blog tools?)
+
+
+
+TDOO (eventually)... specify tagset or achetype in meta rather than taxonomy... determine required tags from that
+
+TODO: maybe implement date archive on subsites (should this add subsite pages to main date archive, or a separate date archive for each subsite?
+TODO: make sure date_archive tag for subsite config is not allowed for now until we figure this out
+
+title/description - maybe need to 'decorate' text in these (i.e. 'fancy' quotes). They don't get rendered like other textnode text, and currently, the raw text is used.
+
+TODO: maybe only list top X topics, with link to ALL or MORE
+
+on transvec.com, make indentgen redirect to -> indentgen/
+
+
+TODO: add featured image to OG opengraph tags
+
+add updates at beginning of post
+add either meta or dentmark related articles. Maybe just use an aside?
+prev part / next part links for series items

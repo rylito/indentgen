@@ -1,7 +1,7 @@
 from uuid import uuid4
 import pickle
 
-from indentgen.default_definitions import CONFIG_TAG_SET, SUBSITE_CONFIG_TAG_SET, TAXONOMY_TAG_SET, CONTENT_TAG_SET
+from indentgen.default_definitions import CONFIG_TAG_SET_NAME, SUBSITE_CONFIG_TAG_SET_NAME, TAXONOMY_TAG_SET_NAME, CONTENT_TAG_SET_NAME
 import dentmark
 from indentgen.img_resize_utils import resize
 
@@ -89,7 +89,8 @@ class Wisdom:
         with open(abs_content_path, 'r') as f:
             try:
                 only_address = 'root.meta' if meta_only else None
-                root = dentmark.parse(f, TAXONOMY_TAG_SET if is_taxonomy else CONTENT_TAG_SET, extra_context, only_address)
+                use_tag_set_name = TAXONOMY_TAG_SET_NAME if is_taxonomy else CONTENT_TAG_SET_NAME
+                root = dentmark.parse(f,use_tag_set_name , extra_context, only_address)
             except Exception as e:
                 raise Exception(f'{abs_content_path}: {e}')
 
@@ -126,7 +127,7 @@ class Wisdom:
 
         with open(self.config_file_path, 'r') as f:
             try:
-                config_data = dentmark.render(f, CONFIG_TAG_SET)
+                config_data = dentmark.render(f, CONFIG_TAG_SET_NAME)
             except Exception as e:
                 raise Exception(f'{self.config_file_path}: {e}')
 
@@ -151,7 +152,7 @@ class Wisdom:
 
         with open(config_file_path, 'r') as f:
             try:
-                config_data = dentmark.render(f, SUBSITE_CONFIG_TAG_SET)
+                config_data = dentmark.render(f, SUBSITE_CONFIG_TAG_SET_NAME)
             except Exception as e:
                 raise Exception(f'{config_file_path}: {e}')
 

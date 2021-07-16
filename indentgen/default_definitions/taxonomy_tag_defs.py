@@ -1,12 +1,12 @@
 import re
-from dentmark import defs_manager, TagDef, OptionalUnique, RequiredUnique
+from dentmark import defs_manager, TagDef, BoolTagDef, OptionalUnique, RequiredUnique
 from dentmark.default_definitions import Root
 from indentgen.default_definitions.content_tag_defs import MetaContext, TitleMetaContext
 from indentgen.taxonomy_def_set import MetaTaxonomyContext
 
-TAXONOMY_TAG_SET = 'indentgen_taxonomy'
+TAXONOMY_TAG_SET_NAME = 'indentgen_taxonomy'
 
-taxonomy_tag_set = defs_manager.copy_tag_set(TAXONOMY_TAG_SET)
+taxonomy_tag_set = defs_manager.copy_tag_set(TAXONOMY_TAG_SET_NAME)
 
 
 @taxonomy_tag_set.register(replace=True)
@@ -29,34 +29,17 @@ class IndentgenTaxonomyRoot(Root):
 
 
 @taxonomy_tag_set.register()
-class TaxonomyPseudoContext(TagDef):
+class TaxonomyPseudoContext(BoolTagDef):
     tag_name = 'pseudo'
-    is_context = True
-
-    min_num_text_nodes = 0
-    max_num_text_nodes = 1
 
     parents = [OptionalUnique('root.meta')]
 
-    def process_data(self, data):
-        if data:
-            return data[0].lower() == 'true'
-        return True
-
-    def validate(self):
-        if self.children:
-            if self.children[0].get_data().lower() not in ('true', 'false'):
-                return f"'pseudo' tags value must be either 'true', 'false', or [empty]. Defaults to 'true' if [empty]"
-
 
 @taxonomy_tag_set.register()
-class TaxonomyGalleryContext(TaxonomyPseudoContext):
+class TaxonomyGalleryContext(BoolTagDef):
     tag_name = 'gallery'
 
-    def validate(self):
-        if self.children:
-            if self.children[0].get_data().lower() not in ('true', 'false'):
-                return f"'gallery' tags value must be either 'true', 'false', or [empty]. Defaults to 'true' if [empty]"
+    parents = [OptionalUnique('root.meta')]
 
 
 @taxonomy_tag_set.register()

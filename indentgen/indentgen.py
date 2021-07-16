@@ -12,8 +12,7 @@ from mako.lookup import TemplateLookup
 
 from indentgen.wisdom import Wisdom
 from indentgen.path_dict import PathDict
-from indentgen.default_definitions.content_tag_defs import CONTENT_TAG_SET
-from indentgen.default_definitions.taxonomy_tag_defs import TAXONOMY_TAG_SET
+from indentgen.default_definitions import content_tag_set, taxonomy_tag_set
 from indentgen.taxonomy_def_set import TaxonomyDefSet
 from indentgen.endpoints import PAGE_URL, Endpoint, ContentEndpoint, ContentGalleryEndpoint, TaxonomyEndpoint, RedirectEndpoint, StaticServeEndpoint, CachedImgEndpoint, DateArchiveEndpoint, Http404Endpoint, RssEndpoint, SiteMapEndpoint
 from indentgen.paginator import Paginator
@@ -127,9 +126,6 @@ class Indentgen:
 
 
     def _patch_def_sets(self):
-        content_tag_set = dentmark.defs_manager.get_tag_set(CONTENT_TAG_SET)
-        taxonomy_tag_set = dentmark.defs_manager.get_tag_set(TAXONOMY_TAG_SET)
-
         # Monkey patch this to use the extended class to defer resolving tag names
         # Kinda hacky, but it works
 

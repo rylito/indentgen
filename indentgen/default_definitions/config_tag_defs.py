@@ -1,13 +1,13 @@
 import re
-from dentmark import defs_manager, TagDef, OptionalUnique, RequiredUnique
+from dentmark import defs_manager, TagDef, PosIntTagDef, OptionalUnique, RequiredUnique
 
-CONFIG_TAG_SET = 'indentgen_config'
-SUBSITE_CONFIG_TAG_SET = 'indentgen_subsite_config'
+CONFIG_TAG_SET_NAME = 'indentgen_config'
+SUBSITE_CONFIG_TAG_SET_NAME = 'indentgen_subsite_config'
 
-config_tag_set = defs_manager.get_tag_set(CONFIG_TAG_SET)
+config_tag_set = defs_manager.get_tag_set(CONFIG_TAG_SET_NAME)
 
 
-class ConfigURLContext(TagDef):
+class SlugTagDef(TagDef):
     is_context = True
 
     min_num_text_nodes = 1
@@ -32,15 +32,16 @@ class ConfigRoot(TagDef):
     def render_main(self):
         return self.context # just return the context to get the config data so we can use render. Config file has no body content, all context
 
+
 @config_tag_set.register()
-class ConfigDateArchiveURL(ConfigURLContext):
+class ConfigDateArchiveURL(SlugTagDef):
     tag_name = 'date_archive_url'
 
     parents = [OptionalUnique('root')]
 
 
 @config_tag_set.register()
-class ConfigSingleParam(TagDef):
+class ConfigTitle(TagDef):
     tag_name = 'title'
     is_context = True
 
@@ -51,31 +52,26 @@ class ConfigSingleParam(TagDef):
 
 
 @config_tag_set.register()
-class ConfigDescription(ConfigSingleParam):
+class ConfigDescription(TagDef):
     tag_name = 'description'
+    is_context = True
+
+    min_num_text_nodes = 1
+    max_num_text_nodes = 1
+
+    parents = [OptionalUnique('root')]
+
 
 
 @config_tag_set.register()
-class ConfigPerPage(ConfigSingleParam):
+class ConfigPerPage(PosIntTagDef):
     tag_name = 'per_page'
 
-
-    def process_data(self, data):
-        per_page = int(data[0])
-        if per_page < 0:
-            raise ValueError
-        return per_page
+    parents = [OptionalUnique('root')]
 
 
-    def validate(self):
-        try:
-            self.get_data()
-        except ValueError:
-            return f"Tag '{self.tag_name}' in config expects a positive integer"
-
-
-# copy from CONFIG_TAG_SET and add a few more required tags
-subsite_config_tag_set = defs_manager.copy_tag_set(SUBSITE_CONFIG_TAG_SET, CONFIG_TAG_SET)
+# copy from CONFIG_TAG_SET_NAME and add a few more required tags
+subsite_config_tag_set = defs_manager.copy_tag_set(SUBSITE_CONFIG_TAG_SET_NAME, CONFIG_TAG_SET_NAME)
 
 @subsite_config_tag_set.register()
 class SubsiteConfigParentSlug(TagDef):
